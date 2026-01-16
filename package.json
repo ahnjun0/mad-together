@@ -1,0 +1,15 @@
+{
+  "name": "gyro-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "server:dev": "yarn workspace @gyro/server dev",
+    "pc:dev": "yarn workspace @gyro/web-pc dev",
+    "mobile:dev": "yarn workspace @gyro/web-mobile dev",
+    "build": "yarn workspaces run build"
+  }
+}

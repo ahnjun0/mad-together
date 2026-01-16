@@ -1,0 +1,28 @@
+# Dependency
+node_modules/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker & OS
+postgres_data/
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Library specific
+.prisma/
+
+# key files
+*.pem
+*.key
