@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment Variables 
+# .env.local 등 로컬 설정뿐만 아니라, 실제 키가 들어가는 파일들은 모두 막아야 함
+*.local
+.env
+.env.development
+.env.test
+.env.production
+
+# 단, 템플릿 파일은 공유해도 됨 (예: .env.example) -> 이건 적지 않음
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
