@@ -25,7 +25,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 # [중요] runtime에 prisma schema 파일이 필요합니다.
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "echo 'DATABASE_URL is: ' $DATABASE_URL && npx prisma migrate deploy && node dist/src/main.js"]
