@@ -1,5 +1,5 @@
 {
-  "name": "gyro-monorepo",
+  "name": "fish-monorepo",
   "private": true,
   "version": "1.0.0",
   "workspaces": [
@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "server:dev": "yarn workspace @gyro/server dev",
-    "pc:dev": "yarn workspace @gyro/web-pc dev",
-    "mobile:dev": "yarn workspace @gyro/web-mobile dev",
+    "server:dev": "yarn workspace @fish/server dev",
+    "pc:dev": "yarn workspace @fish/web-pc dev",
+    "mobile:dev": "yarn workspace @fish/web-mobile dev",
     "build": "yarn workspaces run build"
   }
 }
