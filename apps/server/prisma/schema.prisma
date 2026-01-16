@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 사용자 (Firebase Auth 연동)
+model User {
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+  nickname    String
+  createdAt   DateTime @default(now())
+
+  players     Player[]
+  hostedRooms Room[]   @relation("HostedRooms")
+}
+
+// 게임 방
+model Room {
+  id        String     @id @default(cuid())
+  code      String     @unique  // 6자리 입장 코드 (QR용)
+  hostId    String
+  host      User       @relation("HostedRooms", fields: [hostId], references: [id])
+  status    RoomStatus @default(WAITING)
+  teamAName String     @default("A팀")
+  teamBName String     @default("B팀")
+  createdAt DateTime   @default(now())
+  expiresAt DateTime   // 방 만료 시간
+
+  players   Player[]
+  games     Game[]
+}
+
+enum RoomStatus {
+  WAITING    // 대기 중 (입장 가능)
+  TUTORIAL   // 튜토리얼/센서 확인
+  CASTING    // 캐스팅 중
+  PLAYING    // 게임 진행 중
+  FINISHED   // 게임 종료
+}
+
+// 방 참가자 (방마다 생성되는 임시 레코드)
+model Player {
+  id        String  @id @default(cuid())
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+
+  roomId    String
+  room      Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  team      Team?   // null = 미배정, A or B
+  isHost    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roomId]) // 한 방에 같은 유저 중복 참가 방지
+}
+
+enum Team {
+  A
+  B
+}
+
+// 게임 결과 (완료된 게임만 저장)
+model Game {
+  id           String   @id @default(cuid())
+  roomId       String
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  winnerTeam   Team?
+  teamAScore   Int      @default(0)
+  teamBScore   Int      @default(0)
+
+  startedAt    DateTime
+  endedAt      DateTime
+
+  @@index([roomId])
+}
