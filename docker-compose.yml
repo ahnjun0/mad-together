@@ -28,7 +28,7 @@ services:
     expose:
       - "3000"
     environment:
-      DATABASE_URL: "postgresql://user:password@db:5432/gyro_db?schema=public"
+      DATABASE_URL: "postgresql://user:password@db:5432/fish_db?schema=public"
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
