@@ -32,8 +32,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private scoreUpdateInterval: Map<string, NodeJS.Timeout> = new Map();
   private gameStartTime: Map<string, Date> = new Map();
+  private gamePlayerIds: Map<string, string[]> = new Map(); // roomId -> playerIds
 
   constructor(
     private gamesService: GamesService,
@@ -268,6 +268,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = await this.roomsService.getRoomById(roomId);
     const playerIds = room.players.map(p => p.id);
 
+    // 게임 시작 시 플레이어 목록 저장
+    this.gamePlayerIds.set(roomId, playerIds);
+
     // 모든 플레이어 점수 초기화
     await this.redis.resetAllPlayerScores(roomId, playerIds);
 
@@ -275,33 +278,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.gameStartTime.set(roomId, new Date());
 
     this.server.to(roomId).emit('game_started');
-
-    // 200ms마다 전체 점수 브로드캐스트 (팀 + 개인)
-    const scoreInterval = setInterval(async () => {
-      const [teamScores, playerScores] = await Promise.all([
-        this.gamesService.getScores(roomId),
-        this.redis.getAllPlayerScores(roomId, playerIds),
-      ]);
-
-      this.server.to(roomId).emit('score_update', {
-        teams: teamScores,
-        players: Object.fromEntries(playerScores),
-      });
-
-      // 승리 조건 체크
-      const winner = await this.gamesService.checkWinCondition(roomId);
-      if (winner) {
-        clearInterval(scoreInterval);
-        this.scoreUpdateInterval.delete(roomId);
-        this.endGame(roomId, winner, playerIds);
-      }
-    }, 200);
-
-    this.scoreUpdateInterval.set(roomId, scoreInterval);
   }
 
-  private async endGame(roomId: string, winnerTeam: Team, playerIds: string[]) {
+  private async endGame(roomId: string, winnerTeam: Team) {
     const startedAt = this.gameStartTime.get(roomId) || new Date();
+    const playerIds = this.gamePlayerIds.get(roomId) || [];
     const result = await this.gamesService.endGame(roomId, startedAt);
 
     // 개인 점수도 포함
@@ -336,34 +317,49 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } : null,
     });
 
+    // 정리
     this.gameStartTime.delete(roomId);
+    this.gamePlayerIds.delete(roomId);
   }
 
   @SubscribeMessage('shake')
   async handleShake(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { intensity: number },
+    @MessageBody() data: { count: number },
   ) {
     const { roomId, playerId, nickname, team } = client;
     if (!roomId || !playerId || !team) return;
 
-    // 점수 증가 (intensity에 따라 가중치 적용 가능)
-    const amount = Math.max(1, Math.min(Math.floor(data.intensity / 10), 5)); // 1~5점
+    // Schmitt Trigger 방식: 프론트에서 1회 흔들기 감지 시 count=1 전송
+    const amount = Math.max(1, Math.min(data.count || 1, 10)); // 1~10 (보통 1)
 
     // 팀 점수 + 개인 점수 동시 증가
-    const [teamScore, playerScore] = await Promise.all([
+    const [newTeamScore, newPlayerScore] = await Promise.all([
       this.gamesService.handleShake(roomId, team, amount),
       this.redis.incrementPlayerScore(roomId, playerId, amount),
     ]);
 
-    // 누가 흔들었는지 실시간 브로드캐스트
-    this.server.to(roomId).emit('player_shook', {
-      playerId,
-      nickname,
-      team,
-      amount,
-      playerScore,
-      teamScore,
+    // 전체 팀 점수 조회
+    const teamScores = await this.gamesService.getScores(roomId);
+
+    // 실시간 브로드캐스트: 누가 흔들었는지 + 전체 점수
+    this.server.to(roomId).emit('score_update', {
+      // 이벤트 발생 정보
+      event: {
+        playerId,
+        nickname,
+        team,
+        amount,
+        playerScore: newPlayerScore,
+      },
+      // 전체 팀 점수
+      teams: teamScores,
     });
+
+    // 승리 조건 체크
+    const winner = await this.gamesService.checkWinCondition(roomId);
+    if (winner) {
+      await this.endGame(roomId, winner);
+    }
   }
 }

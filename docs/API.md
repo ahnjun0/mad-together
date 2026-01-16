@@ -9,6 +9,33 @@
 
 ---
 
+## Client Types
+
+### web-pc (호스트용 PC 웹)
+
+| 기능 | 설명 |
+|------|------|
+| 방 생성 | 게임 방 개설, 팀 이름 설정 |
+| QR 코드 표시 | 플레이어 입장용 QR 코드 |
+| 대기실 화면 | 팀원 목록, 팀 배정 현황, 준비 상태 |
+| 게임 진행 제어 | 튜토리얼 시작, 팀장 선정, 카운트다운 |
+| 실시간 점수 표시 | 팀별 점수, 물고기 그래픽 애니메이션 |
+| 게임 결과 | 승리 팀, MVP, 개인별 점수 |
+
+### web-mobile (플레이어용 모바일 웹)
+
+| 기능 | 설명 |
+|------|------|
+| 입장 | QR 스캔 또는 코드 입력 |
+| 프로필 | 닉네임 설정/수정 |
+| 팀 선택 | A팀/B팀 선택 |
+| 준비 완료 | 준비 상태 토글 |
+| 센서 확인 | 가속도계 연결 테스트 |
+| 게임 플레이 | 흔들기 감지 (Schmitt Trigger), 진동 피드백 |
+| 게임 결과 | 본인 점수, 팀 결과, MVP 확인 |
+
+---
+
 ## Authentication
 
 모든 API는 Firebase Authentication을 사용합니다.
@@ -77,7 +104,7 @@ const idToken = await user.getIdToken();
 
 ### POST /api/rooms
 
-새 게임 방 생성 (인증 필요)
+새 게임 방 생성 (인증 필요) - **PC 전용**
 
 **Request:**
 ```json
@@ -142,6 +169,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Status Values:**
+
 | Status | Description |
 |--------|-------------|
 | `WAITING` | 대기 중 (입장 가능) |
@@ -158,7 +186,7 @@ const idToken = await user.getIdToken();
 
 ### POST /api/rooms/:code/join
 
-방 입장 (인증 필요)
+방 입장 (인증 필요) - **Mobile 전용**
 
 **Path Parameters:**
 - `code`: 6자리 입장 코드
@@ -182,7 +210,7 @@ const idToken = await user.getIdToken();
 
 ### PATCH /api/rooms/:roomId/players/:playerId/team
 
-팀 선택 (인증 필요)
+팀 선택 (인증 필요) - **Mobile 전용**
 
 **Path Parameters:**
 - `roomId`: 방 ID
@@ -258,7 +286,7 @@ socket.emit('leave_room');
 
 ### `select_team`
 
-팀 선택
+팀 선택 - **Mobile**
 
 ```typescript
 socket.emit('select_team', {
@@ -270,7 +298,7 @@ socket.emit('select_team', {
 
 ### `toggle_ready`
 
-준비 상태 토글
+준비 상태 토글 - **Mobile**
 
 ```typescript
 socket.emit('toggle_ready');
@@ -280,7 +308,7 @@ socket.emit('toggle_ready');
 
 ### `sensor_checked`
 
-센서 확인 완료
+센서 확인 완료 - **Mobile**
 
 ```typescript
 socket.emit('sensor_checked');
@@ -290,7 +318,7 @@ socket.emit('sensor_checked');
 
 ### `start_tutorial`
 
-튜토리얼 시작 (호스트 전용)
+튜토리얼 시작 - **PC (호스트 전용)**
 
 ```typescript
 socket.emit('start_tutorial');
@@ -300,7 +328,7 @@ socket.emit('start_tutorial');
 
 ### `select_leaders`
 
-팀장 랜덤 선정 (호스트 전용)
+팀장 랜덤 선정 - **PC (호스트 전용)**
 
 ```typescript
 socket.emit('select_leaders');
@@ -310,7 +338,7 @@ socket.emit('select_leaders');
 
 ### `start_casting`
 
-캐스팅 단계 시작 (호스트 전용)
+캐스팅 단계 시작 - **PC (호스트 전용)**
 
 ```typescript
 socket.emit('start_casting');
@@ -320,7 +348,7 @@ socket.emit('start_casting');
 
 ### `cast_complete`
 
-캐스팅 완료 (팀장 전용)
+캐스팅 완료 - **Mobile (팀장 전용)**
 
 ```typescript
 socket.emit('cast_complete', {
@@ -332,7 +360,7 @@ socket.emit('cast_complete', {
 
 ### `start_countdown`
 
-10초 카운트다운 시작 (호스트 전용)
+10초 카운트다운 시작 - **PC (호스트 전용)**
 
 ```typescript
 socket.emit('start_countdown');
@@ -342,17 +370,37 @@ socket.emit('start_countdown');
 
 ### `shake`
 
-흔들기 이벤트 (게임 중)
+흔들기 이벤트 (게임 중) - **Mobile**
 
 ```typescript
+// Schmitt Trigger 방식: 흔들기 1회 감지 시 count=1 전송
 socket.emit('shake', {
-  intensity: 50  // 흔들기 강도 (0-100)
+  count: 1  // 기본값 1 (1회 흔들기)
 });
 ```
 
-**Notes:**
-- `intensity`에 따라 1~5점이 추가됩니다
-- 계산식: `Math.max(1, Math.min(Math.floor(intensity / 10), 5))`
+**Schmitt Trigger 방식 (프론트엔드 구현):**
+```typescript
+// 가속도계에서 power = sqrt(x² + y² + z²) 계산
+// 역치(threshold) 이상 올라갔다가 내려오면 1회로 카운트
+const THRESHOLD_HIGH = 15;  // 흔들기 시작 감지
+const THRESHOLD_LOW = 10;   // 흔들기 종료 감지
+
+let isShaking = false;
+
+function onAccelerometerData(x, y, z) {
+  const power = Math.sqrt(x*x + y*y + z*z);
+
+  if (!isShaking && power > THRESHOLD_HIGH) {
+    isShaking = true;
+  } else if (isShaking && power < THRESHOLD_LOW) {
+    isShaking = false;
+    socket.emit('shake', { count: 1 });
+    // 진동 피드백
+    navigator.vibrate(50);
+  }
+}
+```
 
 ---
 
@@ -446,7 +494,7 @@ socket.on('player_updated', (data) => {
 
 ```typescript
 socket.on('all_ready', () => {
-  // 호스트가 게임 시작 가능
+  // PC: 호스트가 게임 시작 버튼 활성화
 });
 ```
 
@@ -470,7 +518,8 @@ socket.on('all_sensor_checked', () => {
 
 ```typescript
 socket.on('tutorial_started', () => {
-  // 튜토리얼 UI 표시
+  // PC: 튜토리얼 안내 화면 표시
+  // Mobile: 센서 테스트 UI 표시
 });
 ```
 
@@ -483,6 +532,7 @@ socket.on('tutorial_started', () => {
 ```typescript
 socket.on('leaders_selected', (data) => {
   // { teamA: "plxxx...", teamB: "plyyy..." }
+  // Mobile: 본인이 팀장인지 확인하여 UI 변경
 });
 ```
 
@@ -494,7 +544,8 @@ socket.on('leaders_selected', (data) => {
 
 ```typescript
 socket.on('casting_phase', () => {
-  // 팀장에게 캐스팅 UI 표시
+  // PC: 캐스팅 대기 화면
+  // Mobile (팀장): 캐스팅 버튼 표시
 });
 ```
 
@@ -507,6 +558,7 @@ socket.on('casting_phase', () => {
 ```typescript
 socket.on('team_casted', (data) => {
   // { team: "A" }
+  // 캐스팅 애니메이션 재생
 });
 ```
 
@@ -519,6 +571,8 @@ socket.on('team_casted', (data) => {
 ```typescript
 socket.on('countdown', (data) => {
   // { count: 10 } → { count: 9 } → ... → { count: 0 }
+  // PC: 카운트다운 숫자 표시
+  // Mobile: 카운트다운 + 준비 안내
 });
 ```
 
@@ -530,28 +584,8 @@ socket.on('countdown', (data) => {
 
 ```typescript
 socket.on('game_started', () => {
-  // 게임 UI로 전환, 흔들기 감지 시작
-});
-```
-
----
-
-### `player_shook`
-
-누군가 흔들었을 때 (실시간)
-
-```typescript
-socket.on('player_shook', (data) => {
-  // {
-  //   playerId: "plxxx...",
-  //   nickname: "홍길동",
-  //   team: "A",
-  //   amount: 5,           // 이번에 획득한 점수
-  //   playerScore: 127,    // 개인 누적 점수
-  //   teamScore: 450       // 팀 누적 점수
-  // }
-
-  // UI 예시: 닉네임 옆에 "+5" 애니메이션 표시
+  // PC: 물고기 애니메이션 시작
+  // Mobile: 흔들기 감지 시작
 });
 ```
 
@@ -559,17 +593,45 @@ socket.on('player_shook', (data) => {
 
 ### `score_update`
 
-주기적 점수 업데이트 (200ms 간격)
+**실시간 점수 업데이트 (매 흔들기마다 발생)**
 
 ```typescript
 socket.on('score_update', (data) => {
   // {
-  //   teams: { A: 450, B: 380 },
-  //   players: {
-  //     "plxxx...": 127,
-  //     "plyyy...": 98
+  //   event: {
+  //     playerId: "plxxx...",
+  //     nickname: "홍길동",
+  //     team: "A",
+  //     amount: 1,           // 이번에 획득한 점수
+  //     playerScore: 127     // 해당 플레이어 누적 점수
+  //   },
+  //   teams: {
+  //     A: 450,
+  //     B: 380
   //   }
   // }
+
+  // PC: 물고기 위치 업데이트, 닉네임 표시 애니메이션
+  // Mobile: 팀 점수 표시 업데이트
+});
+```
+
+**PC에서 물고기 그래픽 처리 예시:**
+```typescript
+socket.on('score_update', (data) => {
+  const { teams, event } = data;
+  const total = teams.A + teams.B;
+
+  // 물고기 위치 계산 (0 = B팀 쪽, 1 = A팀 쪽)
+  const fishPosition = total > 0 ? teams.A / total : 0.5;
+
+  // 물고기 애니메이션 업데이트
+  updateFishPosition(fishPosition);
+
+  // 누가 흔들었는지 표시
+  if (event) {
+    showFloatingNickname(event.nickname, event.team);
+  }
 });
 ```
 
@@ -595,6 +657,9 @@ socket.on('game_ended', (data) => {
   //     score: 450
   //   }
   // }
+
+  // PC: 승리 팀 발표, MVP 표시, 전체 순위
+  // Mobile: 본인 점수 확인, 팀 결과
 });
 ```
 
@@ -613,6 +678,11 @@ socket.on('game_ended', (data) => {
      │  (방 생성, QR 코드 생성)                     │
      │◄────────────────────────────────────────────
      │                                            │
+     │    ┌──────────────────────┐                │
+     │    │   QR 코드 표시        │                │
+     │    │   입장 대기 화면      │                │
+     │    └──────────────────────┘                │
+     │                                            │
      │            QR 스캔                          │
      │─────────────────────────────────────────────►
      │                                            │
@@ -627,13 +697,13 @@ socket.on('game_ended', (data) => {
      │              room_state                    │
      │─────────────────────────────────────────────►
      │                                            │
-     │              select_team                   │
+     │                                   select_team (팀 선택)
      │◄─────────────────────────────────────────────
      │                                            │
      │              player_updated (broadcast)    │
      │◄────────────────────────────────────────────►
      │                                            │
-     │              toggle_ready                  │
+     │                                   toggle_ready (준비)
      │◄─────────────────────────────────────────────
      │                                            │
      │              all_ready                     │
@@ -645,7 +715,11 @@ socket.on('game_ended', (data) => {
      │              tutorial_started              │
      │◄────────────────────────────────────────────►
      │                                            │
-     │              sensor_checked                │
+     │    ┌──────────────────────┐       ┌──────────────────────┐
+     │    │   튜토리얼 안내       │       │   센서 테스트         │
+     │    └──────────────────────┘       └──────────────────────┘
+     │                                            │
+     │                                   sensor_checked
      │◄─────────────────────────────────────────────
      │                                            │
      │              all_sensor_checked            │
@@ -663,7 +737,7 @@ socket.on('game_ended', (data) => {
      │              casting_phase                 │
      │◄────────────────────────────────────────────►
      │                                            │
-     │              cast_complete (팀장)           │
+     │                                   cast_complete (팀장)
      │◄─────────────────────────────────────────────
      │                                            │
      │  start_countdown (호스트)                   │
@@ -675,18 +749,25 @@ socket.on('game_ended', (data) => {
      │              game_started                  │
      │◄────────────────────────────────────────────►
      │                                            │
-     │              shake (반복)                   │
+     │    ┌──────────────────────┐       ┌──────────────────────┐
+     │    │   물고기 애니메이션   │       │   흔들기 + 진동       │
+     │    └──────────────────────┘       └──────────────────────┘
+     │                                            │
+     │                                   shake (반복)
      │◄─────────────────────────────────────────────
      │                                            │
-     │              player_shook (broadcast)      │
-     │◄────────────────────────────────────────────►
-     │                                            │
-     │              score_update (200ms)          │
+     │         score_update (실시간)              │
      │◄────────────────────────────────────────────►
      │                                            │
      │              game_ended                    │
      │◄────────────────────────────────────────────►
      │                                            │
+     │    ┌──────────────────────┐       ┌──────────────────────┐
+     │    │   결과 화면 (전체)    │       │   결과 화면 (개인)    │
+     │    │   - 승리 팀          │       │   - 내 점수           │
+     │    │   - MVP              │       │   - 팀 결과           │
+     │    │   - 전체 순위        │       │   - MVP               │
+     │    └──────────────────────┘       └──────────────────────┘
 ```
 
 ---
@@ -717,56 +798,106 @@ socket.on('connect_error', (error) => {
 
 ---
 
-## Frontend Integration Example
+## Frontend Integration Examples
 
-### React + Socket.io
+### Mobile - 흔들기 감지 (React Native / Web)
 
 ```typescript
-import { io, Socket } from 'socket.io-client';
-import { useEffect, useState } from 'react';
+// Schmitt Trigger 방식 흔들기 감지
+class ShakeDetector {
+  private isShaking = false;
+  private socket: Socket;
 
-function useGameSocket(token: string, roomId: string, playerId: string) {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [players, setPlayers] = useState([]);
-  const [scores, setScores] = useState({ A: 0, B: 0 });
+  private readonly THRESHOLD_HIGH = 15;
+  private readonly THRESHOLD_LOW = 10;
+
+  constructor(socket: Socket) {
+    this.socket = socket;
+  }
+
+  handleAccelerometer(x: number, y: number, z: number) {
+    const power = Math.sqrt(x*x + y*y + z*z);
+
+    if (!this.isShaking && power > this.THRESHOLD_HIGH) {
+      this.isShaking = true;
+    } else if (this.isShaking && power < this.THRESHOLD_LOW) {
+      this.isShaking = false;
+      this.onShake();
+    }
+  }
+
+  private onShake() {
+    // 서버에 흔들기 이벤트 전송
+    this.socket.emit('shake', { count: 1 });
+
+    // 진동 피드백 (50ms)
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+  }
+}
+
+// 사용 예시
+const detector = new ShakeDetector(socket);
+
+// DeviceMotion API (Web)
+window.addEventListener('devicemotion', (e) => {
+  const { x, y, z } = e.accelerationIncludingGravity;
+  detector.handleAccelerometer(x, y, z);
+});
+```
+
+### PC - 물고기 애니메이션 (React)
+
+```typescript
+function FishGame() {
+  const [fishPosition, setFishPosition] = useState(0.5);
+  const [recentShakes, setRecentShakes] = useState<ShakeEvent[]>([]);
 
   useEffect(() => {
-    const newSocket = io('wss://your-domain.com/game', {
-      auth: { token }
+    socket.on('score_update', (data) => {
+      const { teams, event } = data;
+      const total = teams.A + teams.B;
+
+      // 물고기 위치 계산 (0~1, 0.5가 중앙)
+      const newPosition = total > 0 ? teams.A / total : 0.5;
+      setFishPosition(newPosition);
+
+      // 흔든 사람 표시
+      if (event) {
+        setRecentShakes(prev => [
+          ...prev.slice(-10),
+          { ...event, id: Date.now() }
+        ]);
+      }
     });
 
-    newSocket.on('connect', () => {
-      newSocket.emit('join_room', { roomId, playerId });
-    });
+    return () => socket.off('score_update');
+  }, []);
 
-    newSocket.on('room_state', (data) => {
-      setPlayers(data.players);
-    });
+  return (
+    <div className="game-container">
+      {/* 물고기 */}
+      <Fish
+        style={{
+          left: `${fishPosition * 100}%`,
+          transition: 'left 0.1s ease-out'
+        }}
+      />
 
-    newSocket.on('player_shook', (data) => {
-      // 닉네임 표시 애니메이션
-      showFloatingText(`${data.nickname} +${data.amount}`);
-    });
+      {/* 흔든 사람 닉네임 표시 */}
+      {recentShakes.map(shake => (
+        <FloatingNickname
+          key={shake.id}
+          nickname={shake.nickname}
+          team={shake.team}
+        />
+      ))}
 
-    newSocket.on('score_update', (data) => {
-      setScores(data.teams);
-    });
-
-    newSocket.on('game_ended', (data) => {
-      // 결과 화면 표시
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [token, roomId, playerId]);
-
-  const shake = (intensity: number) => {
-    socket?.emit('shake', { intensity });
-  };
-
-  return { socket, players, scores, shake };
+      {/* 팀별 영역 */}
+      <TeamArea side="left" team="B" />
+      <TeamArea side="right" team="A" />
+    </div>
+  );
 }
 ```
