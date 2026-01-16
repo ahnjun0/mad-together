@@ -10,4 +10,8 @@ export default () => ({
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
   },
+  dev: {
+    authEnabled: process.env.DEV_AUTH_ENABLED === 'true',
+    authToken: process.env.DEV_AUTH_TOKEN || 'dev-token',
+  },
 });

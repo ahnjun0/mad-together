@@ -2,10 +2,10 @@
 
 ## Overview
 
-| Protocol | Base URL | Description |
-|----------|----------|-------------|
-| REST API | `https://{domain}/api` | 방 생성, 입장, 사용자 관리 |
-| WebSocket | `wss://{domain}/game` | 실시간 게임 통신 |
+| Protocol  | Base URL                 | Description                |
+| --------- | ------------------------ | -------------------------- |
+| REST API  | `https://{domain}/api` | 방 생성, 입장, 사용자 관리 |
+| WebSocket | `wss://{domain}/game`  | 실시간 게임 통신           |
 
 ---
 
@@ -13,26 +13,26 @@
 
 ### web-pc (호스트용 PC 웹)
 
-| 기능 | 설명 |
-|------|------|
-| 방 생성 | 게임 방 개설, 팀 이름 설정 |
-| QR 코드 표시 | 플레이어 입장용 QR 코드 |
-| 대기실 화면 | 팀원 목록, 팀 배정 현황, 준비 상태 |
-| 게임 진행 제어 | 튜토리얼 시작, 팀장 선정, 카운트다운 |
-| 실시간 점수 표시 | 팀별 점수, 물고기 그래픽 애니메이션 |
-| 게임 결과 | 승리 팀, MVP, 개인별 점수 |
+| 기능             | 설명                                 |
+| ---------------- | ------------------------------------ |
+| 방 생성          | 게임 방 개설, 팀 이름 설정           |
+| QR 코드 표시     | 플레이어 입장용 QR 코드              |
+| 대기실 화면      | 팀원 목록, 팀 배정 현황, 준비 상태   |
+| 게임 진행 제어   | 튜토리얼 시작, 팀장 선정, 카운트다운 |
+| 실시간 점수 표시 | 팀별 점수, 물고기 그래픽 애니메이션  |
+| 게임 결과        | 승리 팀, MVP, 개인별 점수            |
 
 ### web-mobile (플레이어용 모바일 웹)
 
-| 기능 | 설명 |
-|------|------|
-| 입장 | QR 스캔 또는 코드 입력 |
-| 프로필 | 닉네임 설정/수정 |
-| 팀 선택 | A팀/B팀 선택 |
-| 준비 완료 | 준비 상태 토글 |
-| 센서 확인 | 가속도계 연결 테스트 |
+| 기능        | 설명                                       |
+| ----------- | ------------------------------------------ |
+| 입장        | QR 스캔 또는 코드 입력                     |
+| 프로필      | 닉네임 설정/수정                           |
+| 팀 선택     | A팀/B팀 선택                               |
+| 준비 완료   | 준비 상태 토글                             |
+| 센서 확인   | 가속도계 연결 테스트                       |
 | 게임 플레이 | 흔들기 감지 (Schmitt Trigger), 진동 피드백 |
-| 게임 결과 | 본인 점수, 팀 결과, MVP 확인 |
+| 게임 결과   | 본인 점수, 팀 결과, MVP 확인               |
 
 ---
 
@@ -41,11 +41,13 @@
 모든 API는 Firebase Authentication을 사용합니다.
 
 ### Header
+
 ```
 Authorization: Bearer {Firebase ID Token}
 ```
 
 ### Token 획득 (Frontend)
+
 ```typescript
 const user = firebase.auth().currentUser;
 const idToken = await user.getIdToken();
@@ -62,6 +64,7 @@ const idToken = await user.getIdToken();
 신규 사용자 등록 또는 기존 사용자 조회
 
 **Request:**
+
 ```json
 {
   "idToken": "Firebase ID Token",
@@ -70,6 +73,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "userId": "clxxx...",
@@ -84,6 +88,7 @@ const idToken = await user.getIdToken();
 닉네임 변경 (인증 필요)
 
 **Request:**
+
 ```json
 {
   "nickname": "새닉네임"
@@ -91,6 +96,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "userId": "clxxx...",
@@ -107,6 +113,7 @@ const idToken = await user.getIdToken();
 새 게임 방 생성 (인증 필요) - **PC 전용**
 
 **Request:**
+
 ```json
 {
   "teamAName": "불꽃팀",
@@ -115,6 +122,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "roomId": "clxxx...",
@@ -126,6 +134,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Notes:**
+
 - `code`: 6자리 입장 코드 (QR에 포함)
 - `qrCode`: Base64 인코딩된 QR 이미지
 - 방은 생성 후 1시간 뒤 만료됩니다
@@ -137,9 +146,11 @@ const idToken = await user.getIdToken();
 방 정보 조회 (입장 코드로)
 
 **Path Parameters:**
+
 - `code`: 6자리 입장 코드
 
 **Response (200 OK):**
+
 ```json
 {
   "roomId": "clxxx...",
@@ -170,15 +181,16 @@ const idToken = await user.getIdToken();
 
 **Status Values:**
 
-| Status | Description |
-|--------|-------------|
-| `WAITING` | 대기 중 (입장 가능) |
-| `TUTORIAL` | 튜토리얼/센서 확인 |
-| `CASTING` | 팀장 캐스팅 중 |
-| `PLAYING` | 게임 진행 중 |
-| `FINISHED` | 게임 종료 |
+| Status       | Description         |
+| ------------ | ------------------- |
+| `WAITING`  | 대기 중 (입장 가능) |
+| `TUTORIAL` | 튜토리얼/센서 확인  |
+| `CASTING`  | 팀장 캐스팅 중      |
+| `PLAYING`  | 게임 진행 중        |
+| `FINISHED` | 게임 종료           |
 
 **Errors:**
+
 - `404 Not Found`: 방을 찾을 수 없음
 - `400 Bad Request`: 방이 만료됨
 
@@ -189,9 +201,11 @@ const idToken = await user.getIdToken();
 방 입장 (인증 필요) - **Mobile 전용**
 
 **Path Parameters:**
+
 - `code`: 6자리 입장 코드
 
 **Response (200 OK):**
+
 ```json
 {
   "roomId": "clxxx...",
@@ -204,6 +218,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Errors:**
+
 - `400 Bad Request`: 방이 WAITING 상태가 아님
 
 ---
@@ -213,16 +228,20 @@ const idToken = await user.getIdToken();
 팀 선택 (인증 필요) - **Mobile 전용**
 
 **Path Parameters:**
+
 - `roomId`: 방 ID
 - `playerId`: 플레이어 ID
 
 **Request:**
+
 ```json
 {
   "team": "A"
 }
 ```
+
 또는 팀 선택 해제:
+
 ```json
 {
   "team": null
@@ -230,6 +249,7 @@ const idToken = await user.getIdToken();
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "playerId": "plxxx...",
@@ -244,11 +264,13 @@ const idToken = await user.getIdToken();
 ## Connection
 
 ### Endpoint
+
 ```
 wss://{domain}/game
 ```
 
 ### Authentication
+
 ```typescript
 const socket = io('wss://domain/game', {
   auth: {
@@ -380,6 +402,7 @@ socket.emit('shake', {
 ```
 
 **Schmitt Trigger 방식 (프론트엔드 구현):**
+
 ```typescript
 // 가속도계에서 power = sqrt(x² + y² + z²) 계산
 // 역치(threshold) 이상 올라갔다가 내려오면 1회로 카운트
@@ -617,6 +640,7 @@ socket.on('score_update', (data) => {
 ```
 
 **PC에서 물고기 그래픽 처리 예시:**
+
 ```typescript
 socket.on('score_update', (data) => {
   const { teams, event } = data;
@@ -776,16 +800,17 @@ socket.on('game_ended', (data) => {
 
 ### HTTP Errors
 
-| Status | Description |
-|--------|-------------|
-| `400 Bad Request` | 잘못된 요청 (만료된 방, 잘못된 상태) |
-| `401 Unauthorized` | 인증 실패 (토큰 없음/만료) |
-| `404 Not Found` | 리소스를 찾을 수 없음 |
-| `500 Internal Server Error` | 서버 오류 |
+| Status                        | Description                          |
+| ----------------------------- | ------------------------------------ |
+| `400 Bad Request`           | 잘못된 요청 (만료된 방, 잘못된 상태) |
+| `401 Unauthorized`          | 인증 실패 (토큰 없음/만료)           |
+| `404 Not Found`             | 리소스를 찾을 수 없음                |
+| `500 Internal Server Error` | 서버 오류                            |
 
 ### WebSocket Errors
 
 연결 실패 시 자동 disconnect됩니다.
+
 ```typescript
 socket.on('disconnect', (reason) => {
   console.log('Disconnected:', reason);
