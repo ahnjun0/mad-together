@@ -45,7 +45,6 @@ export class RoomsService {
         hostId: hostUserId,
         teamAName,
         teamBName,
-        maxPlayers,
         expiresAt,
         players: {
           create: {
@@ -53,6 +52,7 @@ export class RoomsService {
             isHost: true,
           },
         },
+        ...({ maxPlayers } as any)
       },
       include: {
         players: {
@@ -146,8 +146,8 @@ export class RoomsService {
           where: {
             roomId,
             team,
-            isLeader: true,
-            id: { not: playerId } // 자기 자신 제외
+            id: { not: playerId }, // 자기 자신 제외
+            ...({ isLeader: true } as any)
           }
         });
         
@@ -162,7 +162,7 @@ export class RoomsService {
         where: { id: playerId },
         data: { 
           team,
-          isLeader: isLeader
+          ...({ isLeader: isLeader } as any)
         },
         include: { user: true },
       });
@@ -176,11 +176,11 @@ export class RoomsService {
     return this.prisma.$transaction([
       this.prisma.player.update({
         where: { id: oldLeaderId },
-        data: { isLeader: false }
+        data: { ...({ isLeader: false } as any) }
       }),
       this.prisma.player.update({
         where: { id: newLeaderId },
-        data: { isLeader: true }
+        data: { ...({ isLeader: true } as any) }
       })
     ]);
   }
@@ -197,11 +197,17 @@ export class RoomsService {
     });
 
     if (nextLeader) {
-      const updatedLeader = await this.prisma.player.update({
-        where: { id: nextLeader.id },
-        data: { isLeader: true },
-        include: { user: true }
-      });
+      const [_, updatedLeader] = await this.prisma.$transaction([
+        this.prisma.player.update({
+          where: { id: currentLeaderId },
+          data: { ...({ isLeader: false } as any) }
+        }),
+        this.prisma.player.update({
+          where: { id: nextLeader.id },
+          data: { ...({ isLeader: true } as any) },
+          include: { user: true }
+        })
+      ]);
       return updatedLeader;
     }
     return null;

@@ -27,3 +27,6 @@ Thumbs.db
 *.pem
 *.key
 certbot/
+
+# Test .py files
+*test*.py
