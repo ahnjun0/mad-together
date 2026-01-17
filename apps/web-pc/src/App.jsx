@@ -1,35 +1,45 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useGameStore } from './store/useGameStore';
+import { usePcSocket } from './hooks/usePcSocket';
+import HomeView from './views/HomeView';
+import WaitingView from './views/WaitingView';
+import TutorialView from './views/TutorialView';
+import CastingView from './views/CastingView';
+import PlayingView from './views/PlayingView';
+import FinishedView from './views/FinishedView';
+import DevTools from './components/DevTools';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const gameState = useGameStore((state) => state.gameState);
+  
+  // Initialize socket connection (side effect)
+  usePcSocket();
+
+  const renderView = () => {
+    switch (gameState) {
+      case 'HOME':
+        return <HomeView />;
+      case 'WAITING':
+        return <WaitingView />;
+      case 'TUTORIAL':
+        return <TutorialView />;
+      case 'CASTING':
+        return <CastingView />;
+      case 'PLAYING':
+        return <PlayingView />;
+      case 'FINISHED':
+        return <FinishedView />;
+      default:
+        return <HomeView />;
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="w-screen h-screen bg-cyan-200 overflow-hidden">
+      {renderView()}
+      <DevTools />
+    </div>
+  );
 }
 
 export default App
