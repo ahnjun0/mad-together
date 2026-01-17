@@ -28,7 +28,7 @@ export class FirebaseAuthGuard implements CanActivate {
     const isDevAuthEnabled = this.configService.get<boolean>('dev.authEnabled');
     const devAuthToken = this.configService.get<string>('dev.authToken');
 
-    if (isDevAuthEnabled && token === devAuthToken) {
+    if (isDevAuthEnabled && token.startsWith(devAuthToken)) {
       const user = await this.authService.getOrCreateDevUser(token);
       request.user = user;
       return true;
