@@ -133,6 +133,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.team = player.team || undefined;
     client.join(roomId);
 
+    if (player.isHost) {
+      client.join(`${roomId}_host`);
+    }
+
     // 방의 다른 사람들에게 알림
     client.to(roomId).emit('player_joined', {
       playerId,
@@ -445,8 +449,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 전체 팀 점수 조회
     const teamScores = await this.gamesService.getScores(roomId);
 
-    // 실시간 브로드캐스트: 누가 흔들었는지 + 전체 점수
-    this.server.to(roomId).emit('score_update', {
+    // 실시간 브로드캐스트: 누가 흔들었는지 + 전체 점수 -> 방장(Host)에게만 전송
+    this.server.to(`${roomId}_host`).emit('score_update', {
       // 이벤트 발생 정보
       event: {
         playerId,
