@@ -26,6 +26,7 @@ model Room {
   status    RoomStatus @default(WAITING)
   teamAName String     @default("A팀")
   teamBName String     @default("B팀")
+  maxPlayers Int       @default(10) // 최대 인원수
   createdAt DateTime   @default(now())
   expiresAt DateTime   // 방 만료 시간
 
@@ -35,6 +36,7 @@ model Room {
 
 enum RoomStatus {
   WAITING    // 대기 중 (입장 가능)
+  CINEMATIC  // 시네마틱 영상 재생
   TUTORIAL   // 튜토리얼/센서 확인
   CASTING    // 캐스팅 중
   PLAYING    // 게임 진행 중
@@ -53,6 +55,7 @@ model Player {
 
   team      Team?   // null = 미배정, A or B
   isHost    Boolean @default(false)
+  isLeader  Boolean @default(false) // 팀장 여부
 
   createdAt DateTime @default(now())
 

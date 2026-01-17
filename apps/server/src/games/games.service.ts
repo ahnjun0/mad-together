@@ -12,22 +12,21 @@ export class GamesService {
     private roomsService: RoomsService,
   ) {}
 
-  // 랜덤으로 각 팀의 팀장 선정
+  // 각 팀의 팀장 조회 (이미 DB에 지정됨)
   async selectTeamLeaders(roomId: string): Promise<{ teamA: string; teamB: string }> {
     const [teamAPlayers, teamBPlayers] = await Promise.all([
       this.roomsService.getPlayersByTeam(roomId, Team.A),
       this.roomsService.getPlayersByTeam(roomId, Team.B),
     ]);
 
-    if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
-      throw new Error('Both teams must have at least one player');
+    const teamALeader = teamAPlayers.find(p => p.isLeader);
+    const teamBLeader = teamBPlayers.find(p => p.isLeader);
+
+    if (!teamALeader || !teamBLeader) {
+      throw new Error('Each team must have a leader');
     }
 
-    // 랜덤 선정
-    const teamALeader = teamAPlayers[Math.floor(Math.random() * teamAPlayers.length)];
-    const teamBLeader = teamBPlayers[Math.floor(Math.random() * teamBPlayers.length)];
-
-    // Redis에 팀장 상태 저장
+    // Redis에 팀장 상태 저장 (게임 로직용)
     await Promise.all([
       this.redis.setTeamLeader(roomId, teamALeader.id, true),
       this.redis.setTeamLeader(roomId, teamBLeader.id, true),

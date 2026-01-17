@@ -16,6 +16,7 @@ import { Team } from '@prisma/client';
 class CreateRoomDto {
   teamAName: string;
   teamBName: string;
+  maxPlayers: number;
 }
 
 class SelectTeamDto {
@@ -33,6 +34,7 @@ export class RoomsController {
       user.id,
       dto.teamAName,
       dto.teamBName,
+      dto.maxPlayers,
     );
 
     // TODO: 실제 배포 시 도메인으로 변경

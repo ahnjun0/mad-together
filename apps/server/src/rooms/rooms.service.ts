@@ -21,7 +21,7 @@ export class RoomsService {
     return code;
   }
 
-  async createRoom(hostUserId: string, teamAName: string, teamBName: string) {
+  async createRoom(hostUserId: string, teamAName: string, teamBName: string, maxPlayers: number = 10) {
     // 유니크한 코드 생성
     let code: string;
     let attempts = 0;
@@ -45,6 +45,7 @@ export class RoomsService {
         hostId: hostUserId,
         teamAName,
         teamBName,
+        maxPlayers,
         expiresAt,
         players: {
           create: {
@@ -114,14 +115,14 @@ export class RoomsService {
   async joinRoom(roomCode: string, userId: string) {
     const room = await this.getRoomByCode(roomCode);
 
-    if (room.status !== RoomStatus.WAITING) {
-      throw new BadRequestException('Room is not accepting new players');
-    }
-
-    // 이미 참가한 경우 기존 player 반환
+    // 이미 참가한 경우 기존 player 반환 (상태 무관)
     const existingPlayer = room.players.find(p => p.userId === userId);
     if (existingPlayer) {
       return { room, player: existingPlayer };
+    }
+
+    if (room.status !== RoomStatus.WAITING) {
+      throw new BadRequestException('Room is not accepting new players');
     }
 
     const player = await this.prisma.player.create({
@@ -136,13 +137,74 @@ export class RoomsService {
   }
 
   async selectTeam(roomId: string, playerId: string, team: Team | null) {
-    const player = await this.prisma.player.update({
-      where: { id: playerId },
-      data: { team },
-      include: { user: true },
+    // 트랜잭션으로 처리하여 동시성 문제 예방
+    return this.prisma.$transaction(async (tx) => {
+      // 1. 현재 방의 해당 팀 리더가 있는지 확인
+      let isLeader = false;
+      if (team) {
+        const existingLeader = await tx.player.findFirst({
+          where: {
+            roomId,
+            team,
+            isLeader: true,
+            id: { not: playerId } // 자기 자신 제외
+          }
+        });
+        
+        // 리더가 없으면 내가 리더
+        if (!existingLeader) {
+          isLeader = true;
+        }
+      }
+
+      // 2. 플레이어 업데이트
+      const player = await tx.player.update({
+        where: { id: playerId },
+        data: { 
+          team,
+          isLeader: isLeader
+        },
+        include: { user: true },
+      });
+
+      return player;
+    });
+  }
+
+  // 리더 수동 변경
+  async changeLeader(roomId: string, team: Team, oldLeaderId: string, newLeaderId: string) {
+    return this.prisma.$transaction([
+      this.prisma.player.update({
+        where: { id: oldLeaderId },
+        data: { isLeader: false }
+      }),
+      this.prisma.player.update({
+        where: { id: newLeaderId },
+        data: { isLeader: true }
+      })
+    ]);
+  }
+
+  // 리더 위임 (현재 리더가 나갈 때 사용)
+  async delegateLeader(roomId: string, team: Team, currentLeaderId: string) {
+    const nextLeader = await this.prisma.player.findFirst({
+      where: {
+        roomId,
+        team,
+        id: { not: currentLeaderId }
+      },
+      orderBy: { createdAt: 'asc' } // 가장 먼저 들어온 사람
     });
 
-    return player;
+    if (nextLeader) {
+      const updatedLeader = await this.prisma.player.update({
+        where: { id: nextLeader.id },
+        data: { isLeader: true },
+        include: { user: true }
+      });
+      return updatedLeader;
+    }
+    return null;
   }
 
   async updateRoomStatus(roomId: string, status: RoomStatus) {

@@ -25,8 +25,9 @@
 │ createdAt   │   │   │ status      │   │   │ teamAScore  │
 └─────────────┘   │   │ teamAName   │   │   │ teamBScore  │
                   │   │ teamBName   │   │   │ startedAt   │
-                  │   │ createdAt   │   │   │ endedAt     │
-                  │   │ expiresAt   │   │   └─────────────┘
+                  │   │ maxPlayers  │   │   │ endedAt     │
+                  │   │ createdAt   │   │   └─────────────┘
+                  │   │ expiresAt   │   │
                   │   └─────────────┘   │
                   │          ▲          │
                   │          │          │
@@ -37,6 +38,7 @@
                       │ roomId (FK) │───┘
                       │ team        │
                       │ isHost      │
+                      │ isLeader    │
                       │ createdAt   │
                       └─────────────┘
 ```
@@ -72,6 +74,7 @@ Firebase Auth와 연동되는 사용자 정보를 저장합니다.
 | `status` | `RoomStatus` | NOT NULL, DEFAULT 'WAITING' | 방 상태 |
 | `teamAName` | `String` | NOT NULL, DEFAULT 'A팀' | A팀 이름 (호스트 지정) |
 | `teamBName` | `String` | NOT NULL, DEFAULT 'B팀' | B팀 이름 (호스트 지정) |
+| `maxPlayers` | `Int` | NOT NULL, DEFAULT 10 | 방 최대 인원수 |
 | `createdAt` | `DateTime` | NOT NULL, DEFAULT NOW | 생성 일시 |
 | `expiresAt` | `DateTime` | NOT NULL | 만료 일시 (생성 후 1시간) |
 
@@ -79,6 +82,7 @@ Firebase Auth와 연동되는 사용자 정보를 저장합니다.
 ```typescript
 enum RoomStatus {
   WAITING   = 'WAITING'   // 대기 중 (입장 가능)
+  CINEMATIC = 'CINEMATIC' // 시네마틱 영상 재생
   TUTORIAL  = 'TUTORIAL'  // 튜토리얼/센서 확인
   CASTING   = 'CASTING'   // 팀장이 캐스팅 중
   PLAYING   = 'PLAYING'   // 게임 진행 중
@@ -104,6 +108,7 @@ enum RoomStatus {
 | `roomId` | `String` | FK → Room.id, CASCADE DELETE | 방 ID |
 | `team` | `Team?` | NULLABLE | 소속 팀 (null = 미배정) |
 | `isHost` | `Boolean` | NOT NULL, DEFAULT false | 방장 여부 |
+| `isLeader` | `Boolean` | NOT NULL, DEFAULT false | 팀장 여부 |
 | `createdAt` | `DateTime` | NOT NULL, DEFAULT NOW | 입장 일시 |
 
 **Team Enum:**

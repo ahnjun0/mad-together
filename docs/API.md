@@ -117,7 +117,8 @@ const idToken = await user.getIdToken();
 ```json
 {
   "teamAName": "불꽃팀",
-  "teamBName": "파도팀"
+  "teamBName": "파도팀",
+  "maxPlayers": 10
 }
 ```
 
@@ -129,7 +130,8 @@ const idToken = await user.getIdToken();
   "code": "ABC123",
   "qrCode": "data:image/png;base64,...",
   "teamAName": "불꽃팀",
-  "teamBName": "파도팀"
+  "teamBName": "파도팀",
+  "maxPlayers": 10
 }
 ```
 
@@ -184,6 +186,7 @@ const idToken = await user.getIdToken();
 | Status       | Description         |
 | ------------ | ------------------- |
 | `WAITING`  | 대기 중 (입장 가능) |
+| `CINEMATIC`| 시네마틱 영상 재생  |
 | `TUTORIAL` | 튜토리얼/센서 확인  |
 | `CASTING`  | 팀장 캐스팅 중      |
 | `PLAYING`  | 게임 진행 중        |
