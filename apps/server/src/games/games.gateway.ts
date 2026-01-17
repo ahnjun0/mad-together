@@ -14,6 +14,7 @@ import { RedisService } from '../redis/redis.service';
 import { AuthService } from '../auth/auth.service';
 import { Team, RoomStatus } from '@prisma/client';
 
+
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   playerId?: string;
@@ -51,10 +52,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      const decoded = await this.authService.verifyToken(token);
-      const user = await this.authService.getUserByFirebaseUid(decoded.uid);
+      // 1. 환경 변수에서 개발 모드 설정 로드 (ConfigService를 사용한다면 해당 방식으로 대체 가능)
+      const isDevAuthEnabled = process.env.DEV_AUTH_ENABLED === 'true';
+      const devAuthToken = process.env.DEV_AUTH_TOKEN || 'dev-token';
+
+      let user;
+
+      // 2. 개발용 토큰 체크 로직 추가
+      if (isDevAuthEnabled && token.startsWith(devAuthToken)) {
+        console.log(`🚀 [Dev Mode] WebSocket Bypass for token: ${token}`);
+        // 기존에 구현된 개발용 유저 생성/조회 메서드 활용
+        user = await this.authService.getOrCreateDevUser(token);
+      } else {
+        // 3. 기존 표준 Firebase 인증 로직
+        const decoded = await this.authService.verifyToken(token);
+        user = await this.authService.getUserByFirebaseUid(decoded.uid);
+      }
 
       if (!user) {
+        console.error(`Connection failed: User not found for token`);
         client.disconnect();
         return;
       }
@@ -74,14 +90,20 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 리더 위임 로직
       const room = await this.roomsService.getRoomById(client.roomId);
       const player = room.players.find(p => p.id === client.playerId);
-      
-      if (player && player.isLeader && player.team) {
+
+      if (player && (player as any).isLeader && player.team) {
         const newLeader = await this.roomsService.delegateLeader(client.roomId, player.team, player.id);
         if (newLeader) {
+          // Redis 상태 업데이트
+          await Promise.all([
+            this.redis.setTeamLeader(client.roomId, player.id, false),
+            this.redis.setTeamLeader(client.roomId, newLeader.id, true),
+          ]);
+
           this.server.to(client.roomId).emit('leader_updated', {
             team: player.team,
             newLeaderId: newLeader.id,
-            nickname: newLeader.user.nickname
+            nickname: (newLeader as any).user.nickname
           });
         }
       }
@@ -110,6 +132,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.nickname = player.user.nickname;
     client.team = player.team || undefined;
     client.join(roomId);
+
+    if (player.isHost) {
+      client.join(`${roomId}_host`);
+    }
 
     // 방의 다른 사람들에게 알림
     client.to(roomId).emit('player_joined', {
@@ -169,27 +195,29 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 현재 요청자가 리더인지 확인 필요
     const room = await this.roomsService.getRoomById(roomId);
     const currentPlayer = room.players.find(p => p.id === playerId);
-    
-    if (!currentPlayer || !currentPlayer.isLeader) {
+
+    if (!currentPlayer || !(currentPlayer as any).isLeader) {
         return; // 권한 없음
     }
 
-    // DB 업데이트 (트랜잭션 권장)
-    await this.roomsService.selectTeam(roomId, playerId, team); // 기존 리더 (isLeader false 처리가 selectTeam 로직에 포함되어야 함. 확인 필요)
-    
-    // 하지만 selectTeam은 리더 자동 할당 로직이 있어서, 수동 변경은 별도 메서드가 필요할 수 있음.
-    // roomsService에 manualDelegateLeader 메서드를 추가하는 것이 깔끔함.
-    // 일단 여기서는 roomsService.selectTeam이 "리더가 없으면 할당" 로직만 있으므로, 
-    // 기존 리더를 false로, 새 리더를 true로 바꾸는 로직을 호출해야 함.
-    
+    // 새로운 리더가 같은 팀인지 확인
+    const newLeaderPlayer = room.players.find(p => p.id === data.newLeaderId);
+    if (!newLeaderPlayer || newLeaderPlayer.team !== team) {
+        return; // 유효하지 않은 대상
+    }
+
     await this.roomsService.changeLeader(roomId, team, playerId, data.newLeaderId);
 
-    const newLeaderPlayer = room.players.find(p => p.id === data.newLeaderId);
+    // Redis 상태도 업데이트 (게임 로직용)
+    await Promise.all([
+      this.redis.setTeamLeader(roomId, playerId, false),
+      this.redis.setTeamLeader(roomId, data.newLeaderId, true),
+    ]);
 
     this.server.to(roomId).emit('leader_updated', {
       team,
       newLeaderId: data.newLeaderId,
-      nickname: newLeaderPlayer?.user.nickname
+      nickname: newLeaderPlayer.user.nickname
     });
   }
 
@@ -262,7 +290,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId } = client;
     if (!roomId) return;
 
-    await this.roomsService.updateRoomStatus(roomId, RoomStatus.CINEMATIC);
+    await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).CINEMATIC);
     this.server.to(roomId).emit('cinematic_started');
   }
 
@@ -273,7 +301,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId } = client;
     if (!roomId) return;
 
-    await this.roomsService.updateRoomStatus(roomId, RoomStatus.TUTORIAL);
+    await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).TUTORIAL);
     this.server.to(roomId).emit('tutorial_started');
   }
 
@@ -292,7 +320,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId } = client;
     if (!roomId) return;
 
-    await this.roomsService.updateRoomStatus(roomId, RoomStatus.CASTING);
+    await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).CASTING);
     this.server.to(roomId).emit('casting_phase');
   }
 
@@ -304,9 +332,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId, team } = client;
     if (!roomId || !playerId || !team) return;
 
-    // 팀장인지 확인 (Redis 또는 DB, 여기서는 간단히 패스하거나 Redis 확인)
-    // const isLeader = await this.redis.isTeamLeader(roomId, playerId);
-    // if (!isLeader) return;
+    // 팀장인지 확인
+    const isLeader = await this.redis.getTeamLeader(roomId, playerId);
+    if (!isLeader) return;
 
     this.server.to(roomId).emit('cast_result', {
       team,
@@ -421,8 +449,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 전체 팀 점수 조회
     const teamScores = await this.gamesService.getScores(roomId);
 
-    // 실시간 브로드캐스트: 누가 흔들었는지 + 전체 점수
-    this.server.to(roomId).emit('score_update', {
+    // 실시간 브로드캐스트: 누가 흔들었는지 + 전체 점수 -> 방장(Host)에게만 전송
+    this.server.to(`${roomId}_host`).emit('score_update', {
       // 이벤트 발생 정보
       event: {
         playerId,

@@ -62,21 +62,21 @@ export class AuthService {
     });
   }
 
-  async getOrCreateDevUser() {
-    const devUid = 'dev-user-uid';
-    let user = await this.prisma.user.findUnique({
-      where: { firebaseUid: devUid },
-    });
+  // auth.service.ts
+  async getOrCreateDevUser(token: string) {
+    // 토큰 문자열(예: dev-token-1)을 기반으로 고유한 UID 생성
+    const devUid = `dev-uid-${token}`;
+
+    let user = await this.prisma.user.findUnique({ where: { firebaseUid: devUid } });
 
     if (!user) {
       user = await this.prisma.user.create({
         data: {
           firebaseUid: devUid,
-          nickname: 'Dev User',
+          nickname: `테스터-${token.split('-').pop()}`,
         },
       });
     }
-
     return user;
   }
 }

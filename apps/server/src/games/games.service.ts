@@ -19,8 +19,8 @@ export class GamesService {
       this.roomsService.getPlayersByTeam(roomId, Team.B),
     ]);
 
-    const teamALeader = teamAPlayers.find(p => p.isLeader);
-    const teamBLeader = teamBPlayers.find(p => p.isLeader);
+    const teamALeader = teamAPlayers.find(p => (p as any).isLeader);
+    const teamBLeader = teamBPlayers.find(p => (p as any).isLeader);
 
     if (!teamALeader || !teamBLeader) {
       throw new Error('Each team must have a leader');
