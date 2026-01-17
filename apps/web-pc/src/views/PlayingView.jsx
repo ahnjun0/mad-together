@@ -3,7 +3,7 @@ import { useGameStore } from '../store/useGameStore';
 
 // PC (Host) only view - Progress bar and fish animation
 export default function PlayingView() {
-  const { score } = useGameStore();
+  const { score, roomInfo } = useGameStore();
 
   // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
   const totalScore = score.A + score.B;
@@ -35,10 +35,10 @@ export default function PlayingView() {
 
         {/* Team labels */}
         <div className="absolute top-4 left-4 text-xl font-bold text-white text-outline">
-          Team B
+          {roomInfo.teamBName || 'Team B'}
         </div>
         <div className="absolute top-4 right-4 text-xl font-bold text-white text-outline">
-          Team A
+          {roomInfo.teamAName || 'Team A'}
         </div>
 
         {/* Fish with smooth movement */}
@@ -60,11 +60,11 @@ export default function PlayingView() {
         {/* Score display */}
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-8">
           <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-600">Team B</div>
+            <div className="text-2xl font-bold text-cyan-600">{roomInfo.teamBName || 'Team B'}</div>
             <div className="text-4xl font-bold text-white text-outline">{score.B}</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">Team A</div>
+            <div className="text-2xl font-bold text-orange-600">{roomInfo.teamAName || 'Team A'}</div>
             <div className="text-4xl font-bold text-white text-outline">{score.A}</div>
           </div>
         </div>

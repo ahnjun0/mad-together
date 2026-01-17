@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useMobileStore } from '../store/useMobileStore';
 
-const SERVER_URL = 'https://madcamp.cloud';
+const SERVER_URL = import.meta.env.VITE_API_URL; // 변경 (.env 사용)
 const SOCKET_NAMESPACE = '/game';
 
 export function useMobileSocket() {
