@@ -109,17 +109,16 @@ export function useMobileSocket() {
   }, [token, roomId, playerId, myTeam]);
 
   // Join room function (HTTP API Call)
-  const joinRoom = async (code, nickname) => {
+  const joinRoom = async (code, nickname, authToken = null) => {
     try {
-      // 임시 토큰 생성 (개발용)
-      // 실제로는 Firebase Auth 등 사용
-      const tempToken = `dev-token-${Date.now()}`;
+      // authToken이 있으면(구글 로그인) 그것을 사용, 없으면 개발용 임시 토큰 생성
+      const token = authToken || `dev-token-${Date.now()}`;
       
       const response = await fetch(`${SERVER_URL}/api/rooms/${code}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tempToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ nickname }),
       });
@@ -132,7 +131,7 @@ export function useMobileSocket() {
       const data = await response.json();
       
       // Store 업데이트 -> useEffect 트리거되어 소켓 연결됨
-      setToken(tempToken);
+      setToken(token);
       setPlayerId(data.playerId);
       setRoomId(data.roomId);
       setNickname(nickname);
