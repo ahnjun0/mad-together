@@ -38,7 +38,7 @@ export class RoomsController {
     );
 
     // TODO: 실제 배포 시 도메인으로 변경
-    const baseUrl = process.env.MOBILE_WEB_URL || 'https://m.example.com';
+    const baseUrl = process.env.MOBILE_WEB_URL || 'https://madcamp.cloud/mobile';
     const qrCode = await this.roomsService.generateQRCode(room.code, baseUrl);
 
     return {

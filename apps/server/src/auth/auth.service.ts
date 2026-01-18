@@ -80,6 +80,13 @@ export class AuthService {
     });
   }
 
+  async updateNickname(userId: string, nickname: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { nickname },
+    });
+  }
+
   // --- Helper Methods ---
   
   async updateRefreshToken(userId: string, refreshToken: string) {
@@ -97,14 +104,14 @@ export class AuthService {
         {
           secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
           expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION'),
-        },
+        } as any,
       ),
       this.jwtService.signAsync(
         { sub: userId, googleId, nickname },
         {
           secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
           expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION'),
-        },
+        } as any,
       ),
     ]);
 
