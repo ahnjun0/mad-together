@@ -243,9 +243,15 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const player = await this.roomsService.selectTeam(roomId, playerId, data.team);
     client.team = player.team || undefined;
 
+    // 팀 선택 시 리더 여부도 업데이트 (Redis 및 클라이언트 알림)
+    if (player.isLeader) {
+        await this.redis.setTeamLeader(roomId, playerId, true);
+    }
+
     this.server.to(roomId).emit('player_updated', {
       playerId,
       team: player.team,
+      isLeader: player.isLeader, // 리더 여부 추가 전송
     });
   }
 

@@ -65,7 +65,7 @@ export function useMobileSocket() {
             const me = data.players.find(p => p.id === playerId);
             if (me) {
               if (me.team) setTeam(me.team);
-              // Note: isLeader 정보는 별도 이벤트나 로직으로 확인 필요할 수 있음
+              if (me.isLeader !== undefined) setIsTeamLeader(me.isLeader);
             }
         }
       }
@@ -96,6 +96,7 @@ export function useMobileSocket() {
     socket.on('player_updated', (data) => {
        if (data.playerId === playerId) {
            if (data.team) setTeam(data.team);
+           if (data.isLeader !== undefined) setIsTeamLeader(data.isLeader);
            // isReady, sensorChecked 등도 여기서 처리 가능
        } 
     });
