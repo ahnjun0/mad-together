@@ -21,7 +21,13 @@ export class RoomsService {
     return code;
   }
 
-  async createRoom(hostUserId: string, teamAName: string, teamBName: string, maxPlayers: number = 10) {
+  async createRoom(
+    hostUserId: string, 
+    teamAName: string, 
+    teamBName: string, 
+    maxPlayers: number = 10,
+    goalScore: number = 1000 // 기본값 1000
+  ) {
     // 유니크한 코드 생성
     let code: string;
     let attempts = 0;
@@ -63,6 +69,9 @@ export class RoomsService {
 
     // Redis 초기화
     await this.redis.initRoom(room.id);
+    
+    // 목표 점수 설정
+    await this.redis.setGoalScore(room.id, goalScore);
 
     return room;
   }

@@ -17,6 +17,7 @@ class CreateRoomDto {
   teamAName: string;
   teamBName: string;
   maxPlayers: number;
+  goalScore?: number; // 목표 점수 (옵션)
 }
 
 class SelectTeamDto {
@@ -35,6 +36,7 @@ export class RoomsController {
       dto.teamAName,
       dto.teamBName,
       dto.maxPlayers,
+      dto.goalScore,
     );
 
     // TODO: 실제 배포 시 도메인으로 변경

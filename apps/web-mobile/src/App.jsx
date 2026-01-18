@@ -1,5 +1,6 @@
 import { useMobileStore } from './store/useMobileStore';
 import { useMobileSocket } from './hooks/useMobileSocket';
+import { useWakeLock } from './hooks/useWakeLock';
 import LoginView from './views/LoginView';
 import LobbyView from './views/LobbyView';
 import InGameView from './views/InGameView';
@@ -14,6 +15,9 @@ function App() {
   
   // Initialize socket connection (side effect)
   useMobileSocket();
+  
+  // Initialize Screen Wake Lock
+  useWakeLock();
 
   // 1. Not Authenticated -> LoginView
   if (!token) {

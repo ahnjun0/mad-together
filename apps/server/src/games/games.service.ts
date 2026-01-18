@@ -87,8 +87,11 @@ export class GamesService {
   }
 
   // 목표 점수 도달 확인
-  async checkWinCondition(roomId: string, targetScore: number = 1000): Promise<Team | null> {
-    const scores = await this.redis.getTeamScores(roomId);
+  async checkWinCondition(roomId: string): Promise<Team | null> {
+    const [scores, targetScore] = await Promise.all([
+      this.redis.getTeamScores(roomId),
+      this.redis.getGoalScore(roomId),
+    ]);
 
     if (scores.A >= targetScore) return Team.A;
     if (scores.B >= targetScore) return Team.B;
