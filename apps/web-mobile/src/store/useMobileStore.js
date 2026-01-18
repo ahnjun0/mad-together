@@ -12,10 +12,12 @@ export const useMobileStore = create(
     myTeam: null, // 'A' | 'B'
     playerId: null,
     nickname: '',
+    profileImage: null, // User profile image URL
     isTeamLeader: false,
     isConnected: false,
     token: null,
     roomId: null,
+    pendingRoomCode: null, // For flow: Login -> Profile -> Join
     players: [],
 
     // Actions
@@ -44,6 +46,11 @@ export const useMobileStore = create(
         draft.nickname = name;
       }),
 
+    setProfileImage: (url) =>
+      set((draft) => {
+        draft.profileImage = url;
+      }),
+
     setIsTeamLeader: (isLeader) =>
       set((draft) => {
         draft.isTeamLeader = isLeader;
@@ -57,6 +64,11 @@ export const useMobileStore = create(
     setRoomId: (id) =>
       set((draft) => {
         draft.roomId = id;
+      }),
+
+    setPendingRoomCode: (code) =>
+      set((draft) => {
+        draft.pendingRoomCode = code;
       }),
 
     updateScore: (teamScores) =>

@@ -1,6 +1,9 @@
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('auth')
 export class AuthController {
@@ -12,9 +15,6 @@ export class AuthController {
     return this.authService.loginWithGoogle(token);
   }
 
-  // Refresh Token을 이용한 토큰 갱신
-  // 실제 프로덕션에서는 Refresh Token을 쿠키(HttpOnly)로 주고받거나, 
-  // 별도의 Guard로 검증하는 것이 좋지만, 여기서는 Body로 받는 간단한 방식으로 구현
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshTokens(@Body() body: { userId: string, refreshToken: string }) {
@@ -34,5 +34,41 @@ export class AuthController {
   async updateNickname(@Req() req: any, @Body('nickname') nickname: string) {
     const user = await this.authService.updateNickname(req.user.id, nickname);
     return { userId: user.id, nickname: user.nickname };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('profile')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req, file, callback) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = extname(file.originalname);
+        callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+      },
+    }),
+    fileFilter: (req, file, callback) => {
+      if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+        return callback(new Error('Only image files are allowed!'), false);
+      }
+      callback(null, true);
+    },
+  }))
+  async updateProfile(
+    @Req() req: any,
+    @Body('nickname') nickname: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    // 파일이 있으면 URL 생성, 없으면 undefined
+    const profileImageUrl = file ? `/uploads/${file.filename}` : undefined;
+    
+    // 닉네임과 이미지를 업데이트 (닉네임은 필수라고 가정)
+    const user = await this.authService.updateProfile(req.user.id, nickname, profileImageUrl);
+    
+    return {
+      userId: user.id,
+      nickname: user.nickname,
+      profileImage: user.profileImage,
+    };
   }
 }

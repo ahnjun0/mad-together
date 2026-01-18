@@ -8,9 +8,10 @@ import LobbyView from './LobbyView';
 
 export default function InGameView() {
   const { gameState, myTeam, score, isTeamLeader } = useMobileStore();
-  const { shake, cast, sensorChecked } = useMobileSocket();
+  const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
+  const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
 
   // 1. 센서 Hooks
   // Shake (Playing용)
@@ -36,16 +37,30 @@ export default function InGameView() {
 
   // 2. Casting Logic
   useEffect(() => {
-    // Casting 단계이고, 팀장이며, 권한이 있을 때
-    if (gameState === 'CASTING' && isTeamLeader && permission === 'granted') {
+    // Casting 단계이고, 팀장이며, 권한이 있을 때, 아직 캐스팅 안했으면
+    if (gameState === 'CASTING' && isTeamLeader && permission === 'granted' && !hasCasted) {
       // Threshold 설정 (실제 기기 테스트 필요, 일단 25)
       if (power > 25) {
-        cast(power);
+        setHasCasted(true);
+        castAction(power);
+        
         // Haptic feedback
         if (navigator.vibrate) navigator.vibrate(100);
+
+        // Send cast complete shortly after action (simulate swing follow-through)
+        setTimeout(() => {
+            castComplete();
+        }, 500);
       }
     }
-  }, [gameState, isTeamLeader, power, permission, cast]);
+  }, [gameState, isTeamLeader, power, permission, castAction, castComplete, hasCasted]);
+
+  // Reset cast state when game state changes (e.g., back to lobby or next game)
+  useEffect(() => {
+      if (gameState !== 'CASTING') {
+          setHasCasted(false);
+      }
+  }, [gameState]);
 
   // 3. Cinematic Logic
   useEffect(() => {
@@ -174,11 +189,13 @@ export default function InGameView() {
                       <div className="space-y-6">
                          <div className="text-6xl mb-4">🎣</div>
                          <h2 className="text-3xl font-bold text-white leading-tight">
-                            낚싯대를<br/>던지세요!
+                            {hasCasted ? "Casting 완료!" : "낚싯대를\n던지세요!"}
                          </h2>
-                         <p className="text-yellow-300 font-bold animate-bounce">
-                            앞으로 강하게 스윙!
-                         </p>
+                         {!hasCasted && (
+                             <p className="text-yellow-300 font-bold animate-bounce">
+                                앞으로 강하게 스윙!
+                             </p>
+                         )}
                          {/* Power Gauge (Debug용) */}
                          <div className="w-full max-w-xs mx-auto h-4 bg-black/40 rounded-full overflow-hidden mt-8 border border-white/10">
                             <motion.div 

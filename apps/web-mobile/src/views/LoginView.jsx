@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
-import { useMobileSocket } from '../hooks/useMobileSocket';
 import { GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
+
+const SERVER_URL = import.meta.env.VITE_API_URL;
 
 export default function LoginView() {
   const [nickname, setNickname] = useState('');
@@ -12,11 +12,9 @@ export default function LoginView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { joinRoom } = useMobileSocket();
-  const { setGameState } = useMobileStore();
+  const { setToken, setNickname: setStoreNickname, setProfileImage, setPendingRoomCode } = useMobileStore();
 
   useEffect(() => {
-    // URL에서 코드 추출 로직 (예: /mobile/join/ABC123)
     const path = window.location.pathname;
     const match = path.match(/\/join\/([a-zA-Z0-9]{6})/);
     if (match && match[1]) {
@@ -25,7 +23,7 @@ export default function LoginView() {
     }
   }, []);
 
-  const handleJoin = async (targetNickname, token = null) => {
+  const handleAuth = async (targetNickname, googleToken = null) => {
     if (!code.trim()) {
       setError('입장 코드를 입력해주세요.');
       return;
@@ -33,11 +31,39 @@ export default function LoginView() {
 
     setLoading(true);
     try {
-      await joinRoom(code.toUpperCase(), targetNickname, token);
-      setGameState('WAITING');
+      let accessToken = null;
+      let userNickname = targetNickname;
+
+      if (googleToken) {
+        // Google Login
+        const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: googleToken }),
+        });
+
+        if (!authRes.ok) throw new Error('Google Authentication Failed');
+        const authData = await authRes.json();
+        accessToken = authData.accessToken;
+        
+        // 백엔드에서 준 구글 이름을 기본 닉네임으로 사용
+        userNickname = authData.user.googleName;
+        
+        // 프로필 이미지 저장
+        setProfileImage(authData.user.profileImage);
+      } else {
+        // Dev Login
+        accessToken = `dev-token-${Date.now()}`;
+      }
+
+      // Store data
+      setToken(accessToken);
+      setStoreNickname(userNickname);
+      setPendingRoomCode(code.toUpperCase());
+      
     } catch (err) {
       console.error(err);
-      setError('입장에 실패했습니다. 코드를 확인해주세요.');
+      setError('로그인에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -46,18 +72,15 @@ export default function LoginView() {
   const handleDevSubmit = (e) => {
     e.preventDefault();
     if (!nickname.trim()) return;
-    handleJoin(nickname, null); // 개발 토큰 자동 생성
+    handleAuth(nickname, null);
   };
 
   const handleGoogleSuccess = (credentialResponse) => {
-    const decoded = jwtDecode(credentialResponse.credential);
-    // 구글 닉네임 사용
-    handleJoin(decoded.name, credentialResponse.credential);
+    handleAuth(null, credentialResponse.credential);
   };
 
   return (
     <div className="w-full h-full flex items-center justify-center p-6 bg-gradient-to-b from-slate-900 via-blue-900 to-slate-900 overflow-hidden relative">
-      {/* 배경 장식 */}
       <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
          <div className="absolute top-1/4 left-[-10%] w-[120%] h-40 bg-blue-500 rounded-[100%] blur-3xl animate-pulse" />
          <div className="absolute bottom-1/4 right-[-10%] w-[120%] h-40 bg-cyan-500 rounded-[100%] blur-3xl animate-pulse delay-1000" />
@@ -77,7 +100,6 @@ export default function LoginView() {
         </div>
 
         <div className="space-y-6">
-          {/* 공통 코드 입력 - 프리필된 경우 숨김 또는 읽기 전용 */}
           {!isCodePreFilled && (
             <div className="space-y-2">
               <label className="text-blue-200 text-sm font-bold ml-1">항구 코드 (6자리)</label>
@@ -109,7 +131,6 @@ export default function LoginView() {
             </motion.div>
           )}
 
-          {/* Google Login Section */}
           <div className="flex justify-center w-full">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
@@ -129,7 +150,6 @@ export default function LoginView() {
             </span>
           </div>
 
-          {/* Dev Login Form */}
           <form onSubmit={handleDevSubmit} className="space-y-4">
             <div className="space-y-2">
               <input

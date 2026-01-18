@@ -166,8 +166,15 @@ export function useMobileSocket() {
     if (socketRef.current) socketRef.current.emit('shake', { count });
   };
   
-  const cast = (power) => {
+  const castAction = (power) => {
     if (socketRef.current) socketRef.current.emit('cast_action', { power });
+  };
+
+  const castComplete = () => {
+    // myTeam state is available in hook scope
+    if (socketRef.current && myTeam) {
+        socketRef.current.emit('cast_complete', { team: myTeam });
+    }
   };
   
   const selectTeam = (team) => {
@@ -190,7 +197,8 @@ export function useMobileSocket() {
     socket: socketRef.current,
     joinRoom,
     shake,
-    cast,
+    castAction,
+    castComplete,
     selectTeam,
     delegateLeader,
     toggleReady,

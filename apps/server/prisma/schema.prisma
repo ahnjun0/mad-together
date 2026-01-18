@@ -11,6 +11,7 @@ model User {
   id                  String   @id @default(cuid())
   googleId            String   @unique
   nickname            String
+  profileImage        String?  // 프로필 이미지 URL
   currentRefreshToken String?
   createdAt           DateTime @default(now())
 

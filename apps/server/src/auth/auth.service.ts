@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class AuthService {
   private googleClient: OAuth2Client;
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     private configService: ConfigService,
@@ -41,13 +42,18 @@ export class AuthService {
     const payload = await this.verifyGoogleToken(idToken);
     
     const googleId = payload.sub;
-    const nickname = payload.name || `User-${googleId.slice(-4)}`;
+    const googleName = payload.name || `User-${googleId.slice(-4)}`;
+    const googlePicture = payload.picture; // 구글 프로필 이미지 URL
 
     // 유저 찾기 또는 생성
     let user = await this.prisma.user.findUnique({ where: { googleId } });
     if (!user) {
       user = await this.prisma.user.create({
-        data: { googleId, nickname },
+        data: { 
+          googleId, 
+          nickname: googleName,
+          profileImage: googlePicture // 최초 생성 시 구글 이미지를 기본값으로 설정
+        },
       });
     }
 
@@ -55,7 +61,15 @@ export class AuthService {
     const tokens = await this.getTokens(user.id, user.googleId, user.nickname);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     
-    return { ...tokens, user: { id: user.id, nickname: user.nickname } };
+    return { 
+      ...tokens, 
+      user: { 
+        id: user.id, 
+        nickname: user.nickname, 
+        googleName: googleName,
+        profileImage: user.profileImage // 현재 저장된 이미지 (구글 URL 혹은 업로드된 경로)
+      } 
+    };
   }
 
   // 3. 토큰 갱신 (Refresh Token 사용)
@@ -87,6 +101,16 @@ export class AuthService {
     });
   }
 
+  async updateProfile(userId: string, nickname: string, profileImage?: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        nickname,
+        ...(profileImage && { profileImage }),
+      },
+    });
+  }
+
   // --- Helper Methods ---
   
   async updateRefreshToken(userId: string, refreshToken: string) {
@@ -98,19 +122,26 @@ export class AuthService {
   }
 
   async getTokens(userId: string, googleId: string, nickname: string) {
+    const accessSecret = this.configService.get<string>('JWT_ACCESS_SECRET') || 'fallback_access_secret';
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'fallback_refresh_secret';
+
+    if (accessSecret === 'fallback_access_secret') {
+      this.logger.warn('JWT_ACCESS_SECRET is missing! Using fallback secret.');
+    }
+
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
         { sub: userId, googleId, nickname },
         {
-          secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION'),
+          secret: accessSecret,
+          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION') || '1h',
         } as any,
       ),
       this.jwtService.signAsync(
         { sub: userId, googleId, nickname },
         {
-          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-          expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION'),
+          secret: refreshSecret,
+          expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d',
         } as any,
       ),
     ]);
