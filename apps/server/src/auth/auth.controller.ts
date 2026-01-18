@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { FirebaseAuthGuard } from '../common/guards/firebase-auth.guard';
+import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
 
 class RegisterDto {
   idToken: string;
@@ -23,7 +23,7 @@ export class AuthController {
   }
 
   @Post('nickname')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(GoogleAuthGuard)
   async updateNickname(@Req() req: any, @Body() dto: UpdateNicknameDto) {
     const user = await this.authService.updateNickname(req.user.id, dto.nickname);
     return { userId: user.id, nickname: user.nickname };

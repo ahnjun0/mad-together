@@ -7,8 +7,8 @@ export default () => ({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
   },
-  firebase: {
-    projectId: process.env.FIREBASE_PROJECT_ID,
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
   },
   dev: {
     authEnabled: process.env.DEV_AUTH_ENABLED === 'true',

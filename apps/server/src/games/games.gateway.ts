@@ -64,9 +64,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // 기존에 구현된 개발용 유저 생성/조회 메서드 활용
         user = await this.authService.getOrCreateDevUser(token);
       } else {
-        // 3. 기존 표준 Firebase 인증 로직
+        // 3. 기존 표준 Google 인증 로직
         const decoded = await this.authService.verifyToken(token);
-        user = await this.authService.getUserByFirebaseUid(decoded.uid);
+        user = await this.authService.getUserByGoogleId(decoded.uid);
       }
 
       if (!user) {

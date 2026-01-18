@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../../auth/auth.service';
 
 @Injectable()
-export class FirebaseAuthGuard implements CanActivate {
+export class GoogleAuthGuard implements CanActivate {
   constructor(
     private authService: AuthService,
     private configService: ConfigService,
@@ -36,7 +36,8 @@ export class FirebaseAuthGuard implements CanActivate {
 
     try {
       const decoded = await this.authService.verifyToken(token);
-      const user = await this.authService.getUserByFirebaseUid(decoded.uid);
+      // decoded.uid comes from payload.sub in auth.service.ts
+      const user = await this.authService.getUserByGoogleId(decoded.uid);
 
       if (!user) {
         throw new UnauthorizedException('User not registered');
