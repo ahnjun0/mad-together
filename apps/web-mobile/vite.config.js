@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl' // 추가
 
 export default defineConfig({
+  base: '/mobile/',
   plugins: [
     react(),
-    basicSsl() // 추가
+    basicSsl()
   ],
   server: {
     port: 5173,       // 모바일은 5173
