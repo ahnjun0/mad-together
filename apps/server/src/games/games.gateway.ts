@@ -181,6 +181,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         nickname: p.user.nickname,
         team: p.team,
         isHost: p.isHost,
+        isLeader: (p as any).isLeader, // 리더 여부 추가
         score: playerScores.get(p.id) || 0,
         ...readyStates.find(rs => rs.playerId === p.id),
       })),
