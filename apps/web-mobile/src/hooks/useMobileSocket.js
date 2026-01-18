@@ -109,16 +109,35 @@ export function useMobileSocket() {
   }, [token, roomId, playerId, myTeam]);
 
   // Join room function (HTTP API Call)
-  const joinRoom = async (code, nickname, authToken = null) => {
+  const joinRoom = async (code, nickname, googleToken = null) => {
     try {
-      // authToken이 있으면(구글 로그인) 그것을 사용, 없으면 개발용 임시 토큰 생성
-      const token = authToken || `dev-token-${Date.now()}`;
+      let accessToken = null;
+
+      if (googleToken) {
+        // 1. Google Login: Exchange ID Token for Access Token
+        const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: googleToken }),
+        });
+
+        if (!authRes.ok) {
+           throw new Error('Google Authentication Failed');
+        }
+
+        const authData = await authRes.json();
+        accessToken = authData.accessToken; // Server issued JWT Access Token
+      } else {
+        // 2. Dev Login: Use temporary token
+        accessToken = `dev-token-${Date.now()}`;
+      }
       
+      // 3. Join Room with Access Token
       const response = await fetch(`${SERVER_URL}/api/rooms/${code}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({ nickname }),
       });
@@ -131,7 +150,7 @@ export function useMobileSocket() {
       const data = await response.json();
       
       // Store 업데이트 -> useEffect 트리거되어 소켓 연결됨
-      setToken(token);
+      setToken(accessToken);
       setPlayerId(data.playerId);
       setRoomId(data.roomId);
       setNickname(nickname);

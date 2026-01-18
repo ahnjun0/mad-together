@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
@@ -8,11 +8,22 @@ import { jwtDecode } from 'jwt-decode';
 export default function LoginView() {
   const [nickname, setNickname] = useState('');
   const [code, setCode] = useState('');
+  const [isCodePreFilled, setIsCodePreFilled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   const { joinRoom } = useMobileSocket();
   const { setGameState } = useMobileStore();
+
+  useEffect(() => {
+    // URL에서 코드 추출 로직 (예: /mobile/join/ABC123)
+    const path = window.location.pathname;
+    const match = path.match(/\/join\/([a-zA-Z0-9]{6})/);
+    if (match && match[1]) {
+      setCode(match[1].toUpperCase());
+      setIsCodePreFilled(true);
+    }
+  }, []);
 
   const handleJoin = async (targetNickname, token = null) => {
     if (!code.trim()) {
@@ -66,18 +77,27 @@ export default function LoginView() {
         </div>
 
         <div className="space-y-6">
-          {/* 공통 코드 입력 */}
-          <div className="space-y-2">
-            <label className="text-blue-200 text-sm font-bold ml-1">항구 코드 (6자리)</label>
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="ABC123"
-              maxLength={6}
-              className="w-full px-5 py-4 bg-slate-800/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-slate-800 transition-all uppercase tracking-widest text-center font-mono text-lg"
-            />
-          </div>
+          {/* 공통 코드 입력 - 프리필된 경우 숨김 또는 읽기 전용 */}
+          {!isCodePreFilled && (
+            <div className="space-y-2">
+              <label className="text-blue-200 text-sm font-bold ml-1">항구 코드 (6자리)</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="ABC123"
+                maxLength={6}
+                className="w-full px-5 py-4 bg-slate-800/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-slate-800 transition-all uppercase tracking-widest text-center font-mono text-lg"
+              />
+            </div>
+          )}
+
+          {isCodePreFilled && (
+            <div className="text-center p-4 bg-blue-500/20 rounded-xl border border-blue-400/30">
+               <p className="text-blue-200 text-sm">입장 코드</p>
+               <p className="text-2xl font-mono font-bold text-white tracking-widest">{code}</p>
+            </div>
+          )}
           
           {error && (
             <motion.div 

@@ -250,14 +250,11 @@ def main():
         print("   2. Press 'Ready'")
         print("*"*60 + "\n")
 
-        # 메인 루프: 사용자가 Enter 치면 튜토리얼 시작
+        # 메인 루프: 호스트가 준비되면 자동으로 튜토리얼 시작
         while True:
             if host_ready_to_start_tutorial:
-                user_input = input("") # Wait for Enter
-                if user_input.strip().lower() == 'q':
-                    break
-
-                log("HOST", "Starting Tutorial...")
+                log("HOST", "All players ready! Starting Tutorial in 2s...")
+                time.sleep(2) # 2초 대기
                 sio_host.emit('start_tutorial', namespace=NAMESPACE)
                 host_ready_to_start_tutorial = False # Reset
 
