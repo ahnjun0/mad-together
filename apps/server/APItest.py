@@ -46,7 +46,6 @@ def on_player_updated(data):
 def on_all_ready():
     global host_ready_to_start_tutorial
     log("HOST", "\n📢 ALL PLAYERS READY! (Host can now start tutorial)")
-    log("HOST", ">> Press ENTER to start the tutorial and game sequence...")
     host_ready_to_start_tutorial = True
 
 @sio_host.on('tutorial_started', namespace=NAMESPACE)
@@ -220,6 +219,7 @@ def main():
 
         sio_host.connect(SOCKET_URL, auth={'token': host_token}, namespaces=[NAMESPACE])
         sio_host.emit('join_room', {'roomId': room_id, 'playerId': host_pid}, namespace=NAMESPACE)
+        # 호스트는 이제 관전만 하므로 팀 선택이나 준비 안함
 
         # 3. 봇 입장 (Team B)
         bot_token = f"dev-token-{BOT_NAME}"

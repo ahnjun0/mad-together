@@ -262,13 +262,21 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isReady: !currentReady,
     });
 
-    // 모든 플레이어 준비 확인
+    // 모든 플레이어 준비 확인 (호스트 제외)
     const room = await this.roomsService.getRoomById(roomId);
-    const playerIds = room.players.map(p => p.id);
-    const allReady = await this.redis.areAllPlayersReady(roomId, playerIds);
+    
+    // 호스트가 아닌 실제 플레이어들만 추출
+    const activePlayerIds = room.players
+      .filter(p => !p.isHost)
+      .map(p => p.id);
 
-    if (allReady && playerIds.length >= 2) {
-      this.server.to(roomId).emit('all_ready');
+    // 플레이어가 2명 이상일 때만 시작 (또는 테스트를 위해 1명 이상 등 정책 결정)
+    // 여기서는 최소 2명 (봇 포함)이 있어야 게임 성립한다고 가정
+    if (activePlayerIds.length >= 2) {
+      const allReady = await this.redis.areAllPlayersReady(roomId, activePlayerIds);
+      if (allReady) {
+        this.server.to(roomId).emit('all_ready');
+      }
     }
   }
 
