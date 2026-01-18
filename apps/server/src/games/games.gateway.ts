@@ -292,13 +292,18 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       sensorChecked: true,
     });
 
-    // 모든 플레이어 센서 확인 완료 체크
+    // 모든 플레이어 센서 확인 완료 체크 (호스트 제외)
     const room = await this.roomsService.getRoomById(roomId);
-    const playerIds = room.players.map(p => p.id);
-    const allChecked = await this.redis.areAllSensorChecked(roomId, playerIds);
+    
+    const activePlayerIds = room.players
+      .filter(p => !p.isHost)
+      .map(p => p.id);
 
-    if (allChecked) {
-      this.server.to(roomId).emit('all_sensor_checked');
+    if (activePlayerIds.length > 0) {
+      const allChecked = await this.redis.areAllSensorChecked(roomId, activePlayerIds);
+      if (allChecked) {
+        this.server.to(roomId).emit('all_sensor_checked');
+      }
     }
   }
 
