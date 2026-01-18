@@ -159,12 +159,22 @@ export function useMobileSocket() {
       if (socketRef.current) socketRef.current.emit('delegate_leader', { newLeaderId });
   };
 
+  const toggleReady = () => {
+    if (socketRef.current) socketRef.current.emit('toggle_ready');
+  };
+
+  const sensorChecked = () => {
+    if (socketRef.current) socketRef.current.emit('sensor_checked');
+  };
+
   return {
     socket: socketRef.current,
     joinRoom,
     shake,
     cast,
     selectTeam,
-    delegateLeader
+    delegateLeader,
+    toggleReady,
+    sensorChecked
   };
 }

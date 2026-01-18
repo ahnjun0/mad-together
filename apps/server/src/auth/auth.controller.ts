@@ -1,31 +1,38 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
-
-class RegisterDto {
-  idToken: string;
-  nickname: string;
-}
-
-class UpdateNicknameDto {
-  nickname: string;
-}
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    const decoded = await this.authService.verifyToken(dto.idToken);
-    const user = await this.authService.findOrCreateUser(decoded.uid, dto.nickname);
-    return { userId: user.id, nickname: user.nickname };
+  @Post('login/google')
+  @HttpCode(HttpStatus.OK)
+  async loginGoogle(@Body('token') token: string) {
+    return this.authService.loginWithGoogle(token);
   }
 
+  // Refresh Token을 이용한 토큰 갱신
+  // 실제 프로덕션에서는 Refresh Token을 쿠키(HttpOnly)로 주고받거나, 
+  // 별도의 Guard로 검증하는 것이 좋지만, 여기서는 Body로 받는 간단한 방식으로 구현
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshTokens(@Body() body: { userId: string, refreshToken: string }) {
+    return this.authService.refreshTokens(body.userId, body.refreshToken);
+  }
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Req() req) {
+    await this.authService.logout(req.user.id);
+    return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('nickname')
-  @UseGuards(GoogleAuthGuard)
-  async updateNickname(@Req() req: any, @Body() dto: UpdateNicknameDto) {
-    const user = await this.authService.updateNickname(req.user.id, dto.nickname);
+  async updateNickname(@Req() req: any, @Body('nickname') nickname: string) {
+    const user = await this.authService.updateNickname(req.user.id, nickname);
     return { userId: user.id, nickname: user.nickname };
   }
 }

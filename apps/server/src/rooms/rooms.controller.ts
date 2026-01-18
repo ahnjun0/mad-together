@@ -9,7 +9,7 @@ import {
   Patch,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
-import { GoogleAuthGuard } from '../common/guards/google-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Team } from '@prisma/client';
 
@@ -24,7 +24,7 @@ class SelectTeamDto {
 }
 
 @Controller('rooms')
-@UseGuards(GoogleAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class RoomsController {
   constructor(private roomsService: RoomsService) {}
 

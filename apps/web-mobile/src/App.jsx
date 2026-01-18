@@ -8,22 +8,37 @@ import DebugPanel from './components/DebugPanel';
 
 function App() {
   const gameState = useMobileStore((state) => state.gameState);
+  const roomId = useMobileStore((state) => state.roomId);
   
   // Initialize socket connection (side effect)
   useMobileSocket();
 
+  // If not joined, show LoginView
+  if (!roomId) {
+      return (
+        <div className="w-screen h-screen overflow-hidden">
+            <LoginView />
+            <DebugPanel />
+        </div>
+      );
+  }
+
   const renderView = () => {
     switch (gameState) {
       case 'WAITING':
-        return <LoginView />;
-      case 'TUTORIAL':
         return <LobbyView />;
+      case 'TUTORIAL':
+        return <InGameView />;
+      case 'CINEMATIC':
+        return <InGameView />;
+      case 'CASTING':
+        return <InGameView />;
       case 'PLAYING':
         return <InGameView />;
       case 'FINISHED':
         return <ResultView />;
       default:
-        return <LoginView />;
+        return <LobbyView />;
     }
   };
 

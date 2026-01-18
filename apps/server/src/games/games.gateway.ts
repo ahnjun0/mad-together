@@ -12,8 +12,9 @@ import { GamesService } from './games.service';
 import { RoomsService } from '../rooms/rooms.service';
 import { RedisService } from '../redis/redis.service';
 import { AuthService } from '../auth/auth.service';
+import { JwtService } from '@nestjs/jwt'; // Import JwtService
+import { ConfigService } from '@nestjs/config'; // Import ConfigService
 import { Team, RoomStatus } from '@prisma/client';
-
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -41,6 +42,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private roomsService: RoomsService,
     private redis: RedisService,
     private authService: AuthService,
+    private jwtService: JwtService, // Inject JwtService
+    private configService: ConfigService, // Inject ConfigService
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -52,21 +55,29 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // 1. 환경 변수에서 개발 모드 설정 로드 (ConfigService를 사용한다면 해당 방식으로 대체 가능)
-      const isDevAuthEnabled = process.env.DEV_AUTH_ENABLED === 'true';
-      const devAuthToken = process.env.DEV_AUTH_TOKEN || 'dev-token';
+      // 1. 환경 변수에서 개발 모드 설정 로드
+      const isDevAuthEnabled = this.configService.get<string>('DEV_AUTH_ENABLED') === 'true';
+      const devAuthToken = this.configService.get<string>('DEV_AUTH_TOKEN') || 'dev-token';
 
       let user;
 
       // 2. 개발용 토큰 체크 로직 추가
       if (isDevAuthEnabled && token.startsWith(devAuthToken)) {
         console.log(`🚀 [Dev Mode] WebSocket Bypass for token: ${token}`);
-        // 기존에 구현된 개발용 유저 생성/조회 메서드 활용
         user = await this.authService.getOrCreateDevUser(token);
       } else {
-        // 3. 기존 표준 Google 인증 로직
-        const decoded = await this.authService.verifyToken(token);
-        user = await this.authService.getUserByGoogleId(decoded.uid);
+        // 3. Custom JWT Token 검증 (Google ID Token 아님)
+        try {
+          const payload = await this.jwtService.verifyAsync(token, {
+            secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+          });
+          // payload.sub contains userId
+          user = { id: payload.sub, nickname: payload.nickname };
+        } catch (e) {
+          console.error('Invalid JWT Token:', e.message);
+          client.disconnect();
+          return;
+        }
       }
 
       if (!user) {

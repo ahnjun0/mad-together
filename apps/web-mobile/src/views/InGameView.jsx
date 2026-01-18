@@ -8,16 +8,24 @@ import LobbyView from './LobbyView';
 
 export default function InGameView() {
   const { gameState, myTeam, score, isTeamLeader } = useMobileStore();
-  const { shake, cast } = useMobileSocket();
+  const { shake, cast, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
+  const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
 
   // 1. 센서 Hooks
   // Shake (Playing용)
   const handleShake = useCallback((count) => {
-    if (gameState === 'PLAYING' || gameState === 'TUTORIAL') {
+    if (gameState === 'PLAYING') {
       shake(count);
+    } else if (gameState === 'TUTORIAL') {
+        // 튜토리얼 중 흔들면 센서 확인 완료 처리
+        if (!isSensorVerified) {
+            setIsSensorVerified(true);
+            sensorChecked();
+            if (navigator.vibrate) navigator.vibrate(200);
+        }
     }
-  }, [gameState, shake]);
+  }, [gameState, shake, sensorChecked, isSensorVerified]);
   
   // useShake 내부적으로 permission 체크를 하지만, 여기서 permission 상태를 넘겨줌
   const { isShaking } = useShake(handleShake, permission);
@@ -139,7 +147,17 @@ export default function InGameView() {
                    </div>
                    <div>
                       <h2 className="text-2xl font-bold text-white mb-2">연습하기</h2>
-                      <p className="text-white/70">마구 흔들어보세요!</p>
+                      <p className="text-white/70 mb-4">마구 흔들어보세요!</p>
+                      
+                      {isSensorVerified && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="px-4 py-2 bg-green-500/20 text-green-300 rounded-full border border-green-500/50"
+                          >
+                              ✅ 센서 확인 완료! 잠시 대기...
+                          </motion.div>
+                      )}
                    </div>
                 </motion.div>
              )}
