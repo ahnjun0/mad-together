@@ -15,7 +15,7 @@ async function bootstrap() {
   // CORS 설정
   app.enableCors({
     origin: process.env.NODE_ENV === 'production'
-      ? [process.env.PC_WEB_URL, process.env.MOBILE_WEB_URL]
+      ? [process.env.PC_WEB_URL, process.env.MOBILE_WEB_URL].filter(Boolean) as string[]
       : true,
     credentials: true,
   });
