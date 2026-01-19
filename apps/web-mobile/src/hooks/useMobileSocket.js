@@ -37,12 +37,15 @@ export function useMobileSocket() {
 
     // Event Listeners
     socket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('[Mobile] ✅ Socket connected');
       setConnected(true);
 
       // 연결/재연결 시 방 정보가 있다면 join_room 시도
       if (roomId && playerId) {
+        console.log('[Mobile] 📡 Emitting join_room:', { roomId, playerId });
         socket.emit('join_room', { roomId, playerId });
+      } else {
+        console.warn('[Mobile] ⚠️ Cannot emit join_room: missing roomId or playerId', { roomId, playerId });
       }
     });
 

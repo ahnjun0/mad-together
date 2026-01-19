@@ -148,10 +148,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.join(`${roomId}_host`);
     }
 
-    // 방의 다른 사람들에게 알림
+    // 방의 다른 사람들에게 알림 (기본 정보 포함)
     client.to(roomId).emit('player_joined', {
       playerId,
+      id: playerId, // PC 클라이언트 호환성
       nickname: player.user.nickname,
+      team: player.team || null,
+      isHost: player.isHost || false,
+      // isReady, sensorChecked는 Redis에서 가져와야 하므로 room_state에서만 포함
     });
 
     const playerIds = room.players.map(p => p.id);
