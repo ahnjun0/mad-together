@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
 
 export default function LobbyView() {
-  const { myTeam, setTeam, isTeamLeader, gameState } = useMobileStore();
+  const { myTeam, setTeam, isTeamLeader, gameState, players, playerId } = useMobileStore();
   const { selectTeam, toggleReady, sensorChecked } = useMobileSocket();
   const [isReady, setIsReady] = useState(false);
   const [isSensorChecked, setIsSensorChecked] = useState(false);
+
+  // 서버에서 받은 플레이어 정보와 동기화
+  useEffect(() => {
+    if (playerId && players && Array.isArray(players)) {
+      const me = players.find(p => (p.id || p.playerId) === playerId);
+      if (me) {
+        if (me.isReady !== undefined) setIsReady(me.isReady);
+        if (me.sensorChecked !== undefined) setIsSensorChecked(me.sensorChecked);
+        if (me.team && me.team !== myTeam) setTeam(me.team);
+      }
+    }
+  }, [players, playerId, myTeam, setTeam]);
 
   const handleTeamSelect = (team) => {
     setTeam(team);
@@ -18,33 +30,8 @@ export default function LobbyView() {
     toggleReady();
   };
 
-  const handleSensorCheck = () => {
-      // 실제 센서 로직은 별도 hook이나 컴포넌트에서 처리하겠지만,
-      // 여기서는 버튼으로 시뮬레이션
-      setIsSensorChecked(true);
-      sensorChecked();
-  };
-
-  if (gameState === 'TUTORIAL') {
-      return (
-        <div className="w-full h-full flex items-center justify-center p-4 bg-gray-900">
-            <div className="text-center space-y-6">
-                <h1 className="text-2xl font-bold text-white">센서 확인</h1>
-                <p className="text-gray-300">핸드폰을 흔들어주세요!</p>
-                {/* 실제로는 흔들림 감지 시 자동 호출되도록 구현해야 함 */}
-                <button 
-                    onClick={handleSensorCheck}
-                    disabled={isSensorChecked}
-                    className={`px-8 py-4 rounded-xl font-bold text-xl ${
-                        isSensorChecked ? 'bg-green-600 text-white' : 'bg-blue-600 text-white animate-pulse'
-                    }`}
-                >
-                    {isSensorChecked ? '확인 완료!' : '센서 테스트 (터치)'}
-                </button>
-            </div>
-        </div>
-      );
-  }
+  // Note: TUTORIAL 상태는 App.jsx에서 InGameView를 렌더링하므로 여기서는 처리하지 않음
+  // LobbyView는 WAITING 상태에서만 사용됨 (팀 선택 및 준비 완료)
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4 bg-gray-900">
