@@ -19,6 +19,10 @@ export class GamesService {
       this.roomsService.getPlayersByTeam(roomId, Team.B),
     ]);
 
+    console.log(`[selectTeamLeaders] Room: ${roomId}`);
+    console.log(`[selectTeamLeaders] Team A Players: ${teamAPlayers.length}`);
+    console.log(`[selectTeamLeaders] Team B Players: ${teamBPlayers.length}`);
+
     let teamALeader = teamAPlayers.find(p => (p as any).isLeader);
     let teamBLeader = teamBPlayers.find(p => (p as any).isLeader);
 
