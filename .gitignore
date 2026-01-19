@@ -15,6 +15,7 @@ postgres_data/
 .DS_Store
 Thumbs.db
 *.log
+.dockerignore
 
 # IDE
 .vscode/
