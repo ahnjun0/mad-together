@@ -97,7 +97,7 @@ export default function LoginView() {
         <div className="text-center mb-10">
           <div className="text-7xl mb-4">🎣</div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-wide">
-            MAD TOGETHER
+            KaHook!
           </h1>
           <p className="text-blue-200 text-sm">
             호스트로 로그인하세요

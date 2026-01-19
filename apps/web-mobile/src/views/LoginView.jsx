@@ -94,7 +94,7 @@ export default function LoginView() {
         <div className="text-center mb-8">
           <div className="text-6xl mb-4 drop-shadow-lg">⚓️</div>
           <h1 className="text-3xl font-bold text-white drop-shadow-md tracking-wider">
-            MAD TOGETHER
+            KaHook!
           </h1>
           <p className="text-blue-200 text-sm mt-1">승선 신고서를 작성해주세요</p>
         </div>
@@ -177,7 +177,7 @@ export default function LoginView() {
       </motion.div>
       
       <div className="absolute bottom-4 text-slate-500 text-xs text-center w-full">
-        © 2026 Mad Together. All hands on deck.
+        © 2026 KaHook!. All hands on deck.
       </div>
     </div>
   );
