@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
 
-const SERVER_URL = import.meta.env.VITE_API_URL;
+const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
 export default function ProfileSetupView() {
   const { nickname, profileImage, token, setNickname } = useMobileStore();

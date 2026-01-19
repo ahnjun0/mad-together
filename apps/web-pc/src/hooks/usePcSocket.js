@@ -26,7 +26,9 @@ export function usePcSocket() {
     // 개발 모드: hostDevToken 사용, 프로덕션: Firebase 토큰 사용
     const authToken = hostDevToken || null; // 실제 프로덕션에서는 Firebase 토큰 사용
     
-    socketRef.current = io(`${SOCKET_URL}${SOCKET_NAMESPACE}`, {
+    const socketUrl = `${SOCKET_URL}${SOCKET_NAMESPACE}`;
+    console.log('[PC] 🔌 Connecting to:', socketUrl);
+    socketRef.current = io(socketUrl, {
       transports: ['websocket'],
       ...(authToken && { auth: { token: authToken } }),
     });

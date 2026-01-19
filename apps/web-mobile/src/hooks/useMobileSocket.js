@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useMobileStore } from '../store/useMobileStore';
 
-const SERVER_URL = import.meta.env.VITE_API_URL;
+const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 const SOCKET_NAMESPACE = '/game';
 
 export function useMobileSocket() {
@@ -28,7 +28,9 @@ export function useMobileSocket() {
     if (!token) return;
 
     // Initialize socket connection
-    socketRef.current = io(`${SERVER_URL}${SOCKET_NAMESPACE}`, {
+    const socketUrl = `${SERVER_URL}${SOCKET_NAMESPACE}`;
+    console.log('[Mobile] 🔌 Connecting to:', socketUrl);
+    socketRef.current = io(socketUrl, {
       transports: ['websocket'],
       auth: { token },
     });
