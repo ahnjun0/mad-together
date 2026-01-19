@@ -5,7 +5,7 @@ import { usePcSocket } from '../hooks/usePcSocket';
 // PC (Host) only view - Split screen for Tutorial with sensor check
 export default function TutorialView() {
   const { players, roomInfo } = useGameStore();
-  const { socket, selectLeaders } = usePcSocket();
+  const { socket, selectLeaders, startCinematic } = usePcSocket();
   const [allSensorsChecked, setAllSensorsChecked] = useState(false);
 
   // players가 객체 형태로 저장됨: { A: [], B: [], unassigned: [] }
@@ -31,14 +31,24 @@ export default function TutorialView() {
       // store가 자동으로 업데이트되므로 리렌더링됨
     };
 
+    const handleLeadersSelected = (data) => {
+      console.log('[TutorialView] 👑 Leaders selected, starting cinematic in 3s...', data);
+      // 3초 후 시네마틱 시작
+      setTimeout(() => {
+        startCinematic();
+      }, 3000);
+    };
+
     socket.on('all_sensor_checked', handleAllSensorsChecked);
     socket.on('player_updated', handlePlayerUpdated);
+    socket.on('leaders_selected', handleLeadersSelected);
 
     return () => {
       socket.off('all_sensor_checked', handleAllSensorsChecked);
       socket.off('player_updated', handlePlayerUpdated);
+      socket.off('leaders_selected', handleLeadersSelected);
     };
-  }, [socket]);
+  }, [socket, startCinematic]);
 
   const handleSelectLeaders = () => {
     console.log('[TutorialView] 👑 Selecting leaders');

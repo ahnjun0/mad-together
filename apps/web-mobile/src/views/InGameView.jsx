@@ -98,14 +98,16 @@ export default function InGameView() {
   // Note: WAITING 상태는 App.jsx에서 LobbyView를 렌더링하므로 여기서는 처리하지 않음
   if (permission !== 'granted') {
     return (
-       <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-900 space-y-6">
+       <div className="w-full h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-900 space-y-6 overflow-hidden">
+          <div className="text-6xl animate-bounce">👋</div>
           <h2 className="text-white text-2xl font-bold">센서 권한 필요</h2>
-          <p className="text-gray-400 text-center">
-            게임을 즐기기 위해 동작 감지 센서 권한이 필요합니다.
+          <p className="text-gray-400 text-center text-sm leading-relaxed">
+            게임을 즐기기 위해 동작 감지 센서 권한이 필요합니다.<br/>
+            (아이폰의 경우 팝업에서 '허용'을 눌러주세요)
           </p>
           <button
             onClick={handleRequestPermission}
-            className="w-full py-4 bg-blue-600 rounded-xl text-white font-bold text-lg active:scale-95 transition-transform"
+            className="w-full py-4 bg-blue-600 rounded-2xl text-white font-bold text-lg active:scale-95 transition-transform shadow-lg shadow-blue-600/30"
           >
             권한 허용하고 시작하기
           </button>
@@ -118,22 +120,22 @@ export default function InGameView() {
   const activeColor = myTeam === 'A' ? 'bg-orange-500' : 'bg-cyan-500';
 
   return (
-    <div className={`w-full h-full flex flex-col relative overflow-hidden transition-colors duration-200 ${isShaking ? activeColor : bgColor}`}>
+    <div className={`w-full h-[100dvh] flex flex-col relative overflow-hidden transition-colors duration-200 ${isShaking ? activeColor : bgColor}`} style={{ touchAction: 'none' }}>
        {/* 상단 정보 */}
-       <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-10 pointer-events-none">
+       <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-10 pointer-events-none safe-area-top">
           <div className="flex flex-col">
-             <span className={`font-bold text-xl drop-shadow-md ${myTeam === 'A' ? 'text-orange-300' : 'text-cyan-300'}`}>
-                Team {myTeam}
+             <span className={`font-black text-2xl drop-shadow-md tracking-tighter ${myTeam === 'A' ? 'text-orange-100' : 'text-cyan-100'}`}>
+                TEAM {myTeam}
              </span>
-             {isTeamLeader && <span className="text-yellow-400 text-sm font-bold">👑 LEADER</span>}
+             {isTeamLeader && <span className="text-yellow-400 text-xs font-black bg-black/50 px-2 py-0.5 rounded backdrop-blur-md self-start mt-1">👑 LEADER</span>}
           </div>
-          <div className="text-white font-mono text-xl font-bold bg-black/40 px-4 py-2 rounded-lg backdrop-blur-sm">
+          <div className="text-white font-mono text-2xl font-black bg-black/30 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
              {score.A} : {score.B}
           </div>
        </div>
 
        {/* 메인 컨텐츠 영역 */}
-       <div className="flex-1 flex flex-col items-center justify-center p-6 w-full">
+       <div className="flex-1 flex flex-col items-center justify-center p-6 w-full safe-area-bottom">
           <AnimatePresence mode="wait">
              {gameState === 'CINEMATIC' && (
                 <motion.div
@@ -143,8 +145,8 @@ export default function InGameView() {
                    exit={{ opacity: 0 }}
                    className="text-center"
                 >
-                   <h1 className="text-3xl font-bold text-white mb-4 animate-pulse">출항 준비!</h1>
-                   <p className="text-white/70">휴대폰을 꼭 쥐어주세요</p>
+                   <h1 className="text-4xl font-black text-white mb-4 animate-pulse drop-shadow-lg">READY?</h1>
+                   <p className="text-white/70 font-medium">꽉 잡으세요!</p>
                 </motion.div>
              )}
 
@@ -154,29 +156,32 @@ export default function InGameView() {
                    initial={{ scale: 0.8, opacity: 0 }}
                    animate={{ scale: 1, opacity: 1 }}
                    exit={{ opacity: 0 }}
-                   className="text-center space-y-8"
+                   className="text-center space-y-8 w-full max-w-sm"
                 >
-                   <div className="w-40 h-40 mx-auto rounded-full border-4 border-white/20 flex items-center justify-center bg-white/5">
+                   <div className="w-48 h-48 mx-auto rounded-full border-4 border-white/10 flex items-center justify-center bg-white/5 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent"></div>
                       <motion.div
                          animate={{ rotate: [0, -20, 20, 0] }}
                          transition={{ repeat: Infinity, duration: 1.5 }}
-                         className="text-6xl"
+                         className="text-7xl relative z-10"
                       >
                          📲
                       </motion.div>
                    </div>
                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-2">연습하기</h2>
-                      <p className="text-white/70 mb-4">마구 흔들어보세요!</p>
+                      <h2 className="text-3xl font-bold text-white mb-2">연습하기</h2>
+                      <p className="text-white/60 mb-6">휴대폰을 흔들어보세요!</p>
                       
-                      {isSensorVerified && (
+                      {isSensorVerified ? (
                           <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="px-4 py-2 bg-green-500/20 text-green-300 rounded-full border border-green-500/50"
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            className="px-6 py-3 bg-green-500 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
                           >
-                              ✅ 센서 확인 완료! 잠시 대기...
+                              <span>✅</span> 연결 성공!
                           </motion.div>
+                      ) : (
+                          <div className="text-white/30 text-sm animate-pulse">Waiting for shake...</div>
                       )}
                    </div>
                 </motion.div>
@@ -191,29 +196,31 @@ export default function InGameView() {
                    className="text-center w-full"
                 >
                    {isTeamLeader ? (
-                      <div className="space-y-6">
-                         <div className="text-6xl mb-4">🎣</div>
-                         <h2 className="text-3xl font-bold text-white leading-tight">
-                            {hasCasted ? "Casting 완료!" : "낚싯대를\n던지세요!"}
+                      <div className="space-y-8">
+                         <div className="text-8xl mb-4 drop-shadow-2xl">🎣</div>
+                         <h2 className="text-4xl font-black text-white leading-tight drop-shadow-lg">
+                            {hasCasted ? "NICE CAST!" : "CAST NOW!"}
                          </h2>
                          {!hasCasted && (
-                             <p className="text-yellow-300 font-bold animate-bounce">
-                                앞으로 강하게 스윙!
+                             <p className="text-yellow-300 font-bold animate-bounce bg-black/30 inline-block px-4 py-2 rounded-lg">
+                                🚀 던지는 시늉을 하세요!
                              </p>
                          )}
                          {/* Power Gauge (Debug용) */}
-                         <div className="w-full max-w-xs mx-auto h-4 bg-black/40 rounded-full overflow-hidden mt-8 border border-white/10">
+                         <div className="w-full max-w-xs mx-auto h-6 bg-black/40 rounded-full overflow-hidden mt-8 border-2 border-white/10 p-1">
                             <motion.div 
-                               className="h-full bg-gradient-to-r from-yellow-400 to-red-500"
+                               className="h-full bg-gradient-to-r from-yellow-400 to-red-500 rounded-full"
                                style={{ width: `${Math.min(power * 3, 100)}%` }}
                             />
                          </div>
                       </div>
                    ) : (
-                      <div className="space-y-4 text-white/60">
-                         <div className="text-4xl mb-4 opacity-50">👀</div>
-                         <p className="text-lg">팀장이 캐스팅 중입니다...</p>
-                         <p className="text-sm opacity-70">잠시만 기다려주세요</p>
+                      <div className="space-y-6 text-white/60">
+                         <div className="text-6xl mb-4 opacity-50 animate-pulse">👀</div>
+                         <div>
+                            <p className="text-2xl font-bold text-white mb-2">팀장이 캐스팅 중</p>
+                            <p className="text-sm opacity-70">잠시만 기다려주세요...</p>
+                         </div>
                       </div>
                    )}
                 </motion.div>
@@ -225,24 +232,28 @@ export default function InGameView() {
                    className="text-center w-full h-full flex flex-col items-center justify-center"
                 >
                    <motion.div
-                      animate={{ scale: isShaking ? 1.2 : 1 }}
-                      className="text-8xl mb-8 filter drop-shadow-2xl"
+                      animate={{ scale: isShaking ? 1.3 : 1, rotate: isShaking ? [0, -10, 10, 0] : 0 }}
+                      className="text-9xl mb-10 filter drop-shadow-2xl"
                    >
                       🐟
                    </motion.div>
-                   <h2 className="text-4xl font-black text-white uppercase tracking-wider drop-shadow-lg animate-pulse">
-                      SHAKE IT!
+                   <h2 className="text-5xl font-black text-white italic tracking-tighter drop-shadow-lg animate-pulse">
+                      SHAKE!!
                    </h2>
+                   <p className="text-white/50 mt-4 font-medium">더 빠르게 흔드세요!</p>
                 </motion.div>
              )}
              
              {gameState === 'FINISHED' && (
                 <motion.div
                     key="finished"
-                    className="text-center"
+                    className="text-center space-y-6"
                 >
-                    <h2 className="text-3xl font-bold text-white mb-4">게임 종료</h2>
-                    <p className="text-white/80">PC 화면에서 결과를 확인하세요</p>
+                    <div className="text-6xl">🏁</div>
+                    <div>
+                        <h2 className="text-4xl font-black text-white mb-2">GAME OVER</h2>
+                        <p className="text-white/60 font-medium">결과를 확인하세요</p>
+                    </div>
                 </motion.div>
              )}
           </AnimatePresence>

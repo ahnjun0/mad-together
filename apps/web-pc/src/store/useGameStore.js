@@ -174,33 +174,46 @@ export const useGameStore = create(
     // Update player (find by ID and merge)
     updatePlayer: (playerId, updates) =>
       set((draft) => {
-        const allPlayers = [...draft.players.A, ...draft.players.B, ...draft.players.unassigned];
-        const playerIndex = allPlayers.findIndex((p) => (p.id || p.playerId) === playerId);
+        // Find player in current teams
+        let currentTeam = null;
+        let playerIndex = -1;
         
-        if (playerIndex === -1) {
-          console.warn('[Store] Player not found for update:', playerId);
+        // Check Team A
+        playerIndex = draft.players.A.findIndex((p) => (p.id || p.playerId) === playerId);
+        if (playerIndex !== -1) {
+          currentTeam = 'A';
+        } else {
+          // Check Team B
+          playerIndex = draft.players.B.findIndex((p) => (p.id || p.playerId) === playerId);
+          if (playerIndex !== -1) {
+            currentTeam = 'B';
+          } else {
+            // Check Unassigned
+            playerIndex = draft.players.unassigned.findIndex((p) => (p.id || p.playerId) === playerId);
+            if (playerIndex !== -1) {
+              currentTeam = 'unassigned';
+            }
+          }
+        }
+        
+        if (currentTeam === null || playerIndex === -1) {
+          // console.warn('[Store] Player not found for update:', playerId);
           return;
         }
         
-        const player = allPlayers[playerIndex];
+        const player = draft.players[currentTeam][playerIndex];
         const updatedPlayer = { ...player, ...updates };
         
-        // Remove from old location
-        if (player.team === 'A') {
-          draft.players.A = draft.players.A.filter((p) => (p.id || p.playerId) !== playerId);
-        } else if (player.team === 'B') {
-          draft.players.B = draft.players.B.filter((p) => (p.id || p.playerId) !== playerId);
-        } else {
-          draft.players.unassigned = draft.players.unassigned.filter((p) => (p.id || p.playerId) !== playerId);
-        }
+        // Check if team changed
+        const newTeam = updatedPlayer.team === 'A' ? 'A' : updatedPlayer.team === 'B' ? 'B' : 'unassigned';
         
-        // Add to new location based on updated team
-        if (updatedPlayer.team === 'A') {
-          draft.players.A.push(updatedPlayer);
-        } else if (updatedPlayer.team === 'B') {
-          draft.players.B.push(updatedPlayer);
+        if (currentTeam === newTeam) {
+          // Update in place
+          draft.players[currentTeam][playerIndex] = updatedPlayer;
         } else {
-          draft.players.unassigned.push(updatedPlayer);
+          // Move to new team
+          draft.players[currentTeam].splice(playerIndex, 1);
+          draft.players[newTeam].push(updatedPlayer);
         }
       }),
 
