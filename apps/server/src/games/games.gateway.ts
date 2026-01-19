@@ -168,7 +168,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.redis.getAllPlayerScores(roomId, playerIds),
     ]);
 
-    client.emit('room_state', {
+    // room_state 데이터 구성
+    const roomStateData = {
       room: {
         id: room.id,
         code: room.code,
@@ -185,7 +186,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         score: playerScores.get(p.id) || 0,
         ...readyStates.find(rs => rs.playerId === p.id),
       })),
-    });
+    };
+
+    // 새로 입장한 클라이언트에게 전송
+    client.emit('room_state', roomStateData);
+    
+    // 전체 방에 브로드캐스트 (PC 클라이언트 등 다른 클라이언트들도 업데이트 받음)
+    this.server.to(roomId).emit('room_state', roomStateData);
   }
 
   @SubscribeMessage('leave_room')

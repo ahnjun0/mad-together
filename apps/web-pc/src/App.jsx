@@ -2,6 +2,7 @@ import { useGameStore } from './store/useGameStore';
 import { usePcSocket } from './hooks/usePcSocket';
 import HomeView from './views/HomeView';
 import WaitingView from './views/WaitingView';
+import CinematicView from './views/CinematicView';
 import TutorialView from './views/TutorialView';
 import CastingView from './views/CastingView';
 import PlayingView from './views/PlayingView';
@@ -21,6 +22,8 @@ function App() {
         return <HomeView />;
       case 'WAITING':
         return <WaitingView />;
+      case 'CINEMATIC':
+        return <CinematicView />;
       case 'TUTORIAL':
         return <TutorialView />;
       case 'CASTING':

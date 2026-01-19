@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 
 // PC (Host) only view - Progress bar and fish animation
@@ -8,6 +9,16 @@ export default function PlayingView() {
   // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
   const totalScore = score.A + score.B;
   const fishPosition = totalScore > 0 ? score.A / totalScore : 0.5;
+
+  // Debug: Log score changes for real-time updates
+  useEffect(() => {
+    console.log('[PlayingView] 📊 Score updated:', score, 'Fish position:', fishPosition);
+  }, [score, fishPosition]);
+
+  // Debug: Log score changes
+  useEffect(() => {
+    console.log('[PlayingView] 📊 Score updated:', score, 'Fish position:', fishPosition);
+  }, [score, fishPosition]);
 
   return (
     <div className="w-full h-full flex flex-col p-8">

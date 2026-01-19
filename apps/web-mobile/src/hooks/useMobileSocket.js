@@ -52,17 +52,31 @@ export function useMobileSocket() {
     });
 
     socket.on('room_state', (data) => {
-      console.log('Room state:', data);
+      console.log('[Mobile] Room state received:', data);
       if (data.room?.status) {
         setGameState(data.room.status);
       }
       
       // 내 정보 동기화 및 전체 플레이어 목록 저장
       if (data.players && Array.isArray(data.players)) {
-        useMobileStore.getState().setPlayers(data.players); // Store 액션 직접 호출 or destructuring 추가 필요
+        // 정규화된 플레이어 데이터 저장
+        const normalizedPlayers = data.players.map(p => ({
+          id: p.id || p.playerId,
+          playerId: p.playerId || p.id,
+          nickname: p.nickname || 'Unknown',
+          team: p.team || null,
+          isHost: p.isHost || false,
+          isReady: p.isReady || false,
+          isLeader: p.isLeader || false,
+          sensorChecked: p.sensorChecked || false,
+          score: p.score || 0,
+          ...p,
+        }));
+        
+        useMobileStore.getState().setPlayers(normalizedPlayers);
         
         if (playerId) {
-            const me = data.players.find(p => p.id === playerId);
+            const me = normalizedPlayers.find(p => (p.id || p.playerId) === playerId);
             if (me) {
               if (me.team) setTeam(me.team);
               if (me.isLeader !== undefined) setIsTeamLeader(me.isLeader);
@@ -94,11 +108,27 @@ export function useMobileSocket() {
     });
     
     socket.on('player_updated', (data) => {
-       if (data.playerId === playerId) {
-           if (data.team) setTeam(data.team);
-           if (data.isLeader !== undefined) setIsTeamLeader(data.isLeader);
-           // isReady, sensorChecked 등도 여기서 처리 가능
-       } 
+      console.log('[Mobile] Player updated:', data);
+      // 내 정보가 업데이트된 경우
+      if (data.playerId === playerId || data.id === playerId) {
+          if (data.team !== undefined) setTeam(data.team);
+          if (data.isLeader !== undefined) setIsTeamLeader(data.isLeader);
+          // isReady, sensorChecked는 room_state에서 동기화됨
+      }
+      
+      // 전체 플레이어 목록도 업데이트 (다른 플레이어의 상태 변경 반영)
+      const currentPlayers = useMobileStore.getState().players;
+      if (Array.isArray(currentPlayers)) {
+        const updatedPlayers = currentPlayers.map(p => {
+          const pId = p.id || p.playerId;
+          const dataId = data.playerId || data.id;
+          if (pId === dataId) {
+            return { ...p, ...data };
+          }
+          return p;
+        });
+        useMobileStore.getState().setPlayers(updatedPlayers);
+      }
     });
 
     // Cleanup
