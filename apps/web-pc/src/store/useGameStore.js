@@ -5,8 +5,17 @@ import { immer } from 'zustand/middleware/immer';
 // This store is used to manage the game state and the score
 export const useGameStore = create(
   immer((set) => ({
-    // State
-    gameState: 'HOME', // 'HOME' | 'WAITING' | 'CINEMATIC' | 'TUTORIAL' | 'CASTING' | 'PLAYING' | 'FINISHED'
+    // Auth State
+    isAuthenticated: false,
+    accessToken: null,
+    user: {
+      id: null,
+      nickname: null,
+      profileImage: null,
+    },
+
+    // Game State
+    gameState: 'LOGIN', // 'LOGIN' | 'HOME' | 'WAITING' | 'CINEMATIC' | 'TUTORIAL' | 'CASTING' | 'PLAYING' | 'FINISHED'
     score: {
       A: 0,
       B: 0,
@@ -22,9 +31,8 @@ export const useGameStore = create(
       teamBName: 'B팀',
       maxPlayers: 10,
       status: null,
-      hostPlayerId: null, // 호스트의 playerId
     },
-    hostDevToken: null, // 호스트 개발 모드 토큰
+    hostDevToken: null, // 호스트 개발 모드 토큰 (deprecated - use accessToken)
     players: {
       A: [],
       B: [],
@@ -247,6 +255,63 @@ export const useGameStore = create(
     setHostDevToken: (token) =>
       set((draft) => {
         draft.hostDevToken = token;
+      }),
+
+    // Auth actions
+    setAuth: (accessToken, user) =>
+      set((draft) => {
+        draft.isAuthenticated = true;
+        draft.accessToken = accessToken;
+        draft.user = {
+          id: user.id,
+          nickname: user.nickname || user.googleName,
+          profileImage: user.profileImage,
+        };
+        draft.hostDevToken = accessToken; // 호환성 유지
+      }),
+
+    logout: () =>
+      set((draft) => {
+        draft.isAuthenticated = false;
+        draft.accessToken = null;
+        draft.user = { id: null, nickname: null, profileImage: null };
+        draft.hostDevToken = null;
+        draft.gameState = 'LOGIN';
+        draft.roomInfo = {
+          roomId: null,
+          code: null,
+          qrCode: null,
+          teamAName: 'A팀',
+          teamBName: 'B팀',
+          maxPlayers: 10,
+          status: null,
+        };
+        draft.players = { A: [], B: [], unassigned: [] };
+      }),
+
+    // 기존 게임으로 복귀
+    restoreRoom: (roomData) =>
+      set((draft) => {
+        draft.roomInfo = {
+          roomId: roomData.roomId,
+          code: roomData.code,
+          qrCode: roomData.qrCode,
+          teamAName: roomData.teamAName,
+          teamBName: roomData.teamBName,
+          maxPlayers: roomData.maxPlayers || 10,
+          status: roomData.status,
+        };
+        draft.isHost = true;
+        // 상태에 따라 gameState 설정
+        const statusMap = {
+          WAITING: 'WAITING',
+          CINEMATIC: 'CINEMATIC',
+          TUTORIAL: 'TUTORIAL',
+          CASTING: 'CASTING',
+          PLAYING: 'PLAYING',
+          FINISHED: 'FINISHED',
+        };
+        draft.gameState = statusMap[roomData.status] || 'WAITING';
       }),
   }))
 );

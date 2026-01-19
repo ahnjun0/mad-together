@@ -86,20 +86,21 @@ export async function joinRoomAsBot(code, devToken, nickname = null) {
 
 /**
  * Create a new game room (Host only)
+ * Host는 Player로 등록되지 않음 (Observer 역할)
  * @param {string} teamAName - Name for Team A
  * @param {string} teamBName - Name for Team B
  * @param {number} maxPlayers - Maximum players per team (optional)
- * @param {string} devToken - Development token (optional, for dev mode)
- * @returns {Promise<{roomId: string, code: string, qrCode: string, teamAName: string, teamBName: string, hostPlayerId: string}>}
+ * @param {string} accessToken - JWT access token
+ * @returns {Promise<{roomId: string, code: string, qrCode: string, teamAName: string, teamBName: string}>}
  */
-export async function createRoom(teamAName, teamBName, maxPlayers = 10, devToken = null) {
+export async function createRoom(teamAName, teamBName, maxPlayers = 10, accessToken = null) {
   try {
     const headers = {
       'Content-Type': 'application/json',
     };
-    
-    if (devToken) {
-      headers['Authorization'] = `Bearer ${devToken}`;
+
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
     }
 
     const response = await fetch(`${API_BASE_URL}/rooms`, {
@@ -118,22 +119,7 @@ export async function createRoom(teamAName, teamBName, maxPlayers = 10, devToken
     }
 
     const roomData = await response.json();
-    
-    // 호스트 playerId를 얻기 위해 방 정보 다시 조회
-    // Note: 백엔드에서 createRoom 응답에 hostPlayerId를 포함하도록 수정하는 것이 더 효율적입니다
-    if (roomData.code) {
-      try {
-        const roomInfo = await getRoomByCode(roomData.code, devToken);
-        // 호스트 플레이어 찾기
-        const hostPlayer = roomInfo.players?.find(p => p.isHost);
-        if (hostPlayer) {
-          roomData.hostPlayerId = hostPlayer.id;
-        }
-      } catch (err) {
-        console.warn('Could not fetch host playerId:', err);
-      }
-    }
-
+    // Host는 더 이상 Player로 등록되지 않으므로 hostPlayerId 조회 불필요
     return roomData;
   } catch (error) {
     console.error('Error creating room:', error);

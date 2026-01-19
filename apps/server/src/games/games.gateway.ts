@@ -22,6 +22,7 @@ interface AuthenticatedSocket extends Socket {
   roomId?: string;
   nickname?: string;
   team?: Team;
+  isHost?: boolean; // Host(observer)인지 여부
 }
 
 @WebSocketGateway({
@@ -97,6 +98,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: AuthenticatedSocket) {
     console.log(`Client disconnected: ${client.id}`);
 
+    // Host(observer)가 연결 해제된 경우 - 별도 처리 없음
+    if (client.isHost) {
+      console.log(`[Gateway] Host (observer) disconnected from room: ${client.roomId}`);
+      return;
+    }
+
     if (client.roomId && client.playerId) {
       // 리더 위임 로직
       const room = await this.roomsService.getRoomById(client.roomId);
@@ -114,7 +121,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.server.to(client.roomId).emit('leader_updated', {
             team: player.team,
             newLeaderId: newLeader.id,
-            nickname: (newLeader as any).user.nickname
+            nickname: (newLeader as any).nickname // Player 테이블의 고정된 닉네임
           });
         }
       }
@@ -128,35 +135,46 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join_room')
   async handleJoinRoom(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { roomId: string; playerId: string },
+    @MessageBody() data: { roomId: string; playerId?: string },
   ) {
     const { roomId, playerId } = data;
 
     // 현재 방 상태 전송
     const room = await this.roomsService.getRoomById(roomId);
-    const player = room.players.find(p => p.id === playerId);
 
-    if (!player) return;
+    // Host(observer)인지 Player인지 확인
+    const isHost = room.hostId === client.userId;
 
     client.roomId = roomId;
-    client.playerId = playerId;
-    client.nickname = player.user.nickname;
-    client.team = player.team || undefined;
+    client.isHost = isHost;
     client.join(roomId);
 
-    if (player.isHost) {
+    if (isHost) {
+      // Host는 Observer - 게임을 관전하는 역할
       client.join(`${roomId}_host`);
-    }
+      console.log(`[Gateway] Host (observer) joined room: ${roomId}`);
+    } else {
+      // Player 입장
+      const player = room.players.find(p => p.id === playerId);
+      if (!player) {
+        console.warn(`[Gateway] Player not found: ${playerId}`);
+        return;
+      }
 
-    // 방의 다른 사람들에게 알림 (기본 정보 포함)
-    client.to(roomId).emit('player_joined', {
-      playerId,
-      id: playerId, // PC 클라이언트 호환성
-      nickname: player.user.nickname,
-      team: player.team || null,
-      isHost: player.isHost || false,
-      // isReady, sensorChecked는 Redis에서 가져와야 하므로 room_state에서만 포함
-    });
+      client.playerId = playerId;
+      client.nickname = (player as any).nickname; // Player 테이블의 고정된 닉네임
+      client.team = player.team || undefined;
+
+      // 방의 다른 사람들에게 알림 (기본 정보 포함)
+      client.to(roomId).emit('player_joined', {
+        playerId,
+        id: playerId, // PC 클라이언트 호환성
+        nickname: (player as any).nickname,
+        profileImage: (player as any).profileImage,
+        team: player.team || null,
+        isLeader: (player as any).isLeader || false,
+      });
+    }
 
     const playerIds = room.players.map(p => p.id);
 
@@ -172,7 +190,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.redis.getAllPlayerScores(roomId, playerIds),
     ]);
 
-    // room_state 데이터 구성
+    // room_state 데이터 구성 - Player 테이블의 고정된 닉네임 사용
     const roomStateData = {
       room: {
         id: room.id,
@@ -183,10 +201,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
       players: room.players.map(p => ({
         id: p.id,
-        nickname: p.user.nickname,
+        nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임
+        profileImage: (p as any).profileImage,
         team: p.team,
-        isHost: p.isHost,
-        isLeader: (p as any).isLeader, // 리더 여부 추가
+        isLeader: (p as any).isLeader,
         score: playerScores.get(p.id) || 0,
         ...readyStates.find(rs => rs.playerId === p.id),
       })),
@@ -194,9 +212,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 새로 입장한 클라이언트에게 전송
     client.emit('room_state', roomStateData);
-    
-    // 전체 방에 브로드캐스트 (PC 클라이언트 등 다른 클라이언트들도 업데이트 받음)
-    this.server.to(roomId).emit('room_state', roomStateData);
+
+    // Player 입장 시 전체 방에 브로드캐스트 (Host 입장은 브로드캐스트 불필요)
+    if (!isHost) {
+      this.server.to(roomId).emit('room_state', roomStateData);
+    }
   }
 
   @SubscribeMessage('leave_room')
@@ -240,7 +260,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('leader_updated', {
       team,
       newLeaderId: data.newLeaderId,
-      nickname: newLeaderPlayer.user.nickname
+      nickname: (newLeaderPlayer as any).nickname // Player 테이블의 고정된 닉네임
     });
   }
 
@@ -280,21 +300,18 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isReady: !currentReady,
     });
 
-    // 모든 플레이어 준비 확인 (호스트 제외)
+    // 모든 플레이어 준비 확인 (Host는 Player가 아니므로 필터링 불필요)
     const room = await this.roomsService.getRoomById(roomId);
-    
-    // 호스트가 아닌 실제 플레이어들만 추출
-    const activePlayers = room.players.filter(p => !p.isHost);
-    const activePlayerIds = activePlayers.map(p => p.id);
+    const playerIds = room.players.map(p => p.id);
 
     // 플레이어가 2명 이상일 때만 시작
-    if (activePlayerIds.length >= 2) {
+    if (playerIds.length >= 2) {
       // 각 팀에 적어도 한 명씩은 있는지 확인
-      const hasTeamA = activePlayers.some(p => p.team === Team.A);
-      const hasTeamB = activePlayers.some(p => p.team === Team.B);
+      const hasTeamA = room.players.some(p => p.team === Team.A);
+      const hasTeamB = room.players.some(p => p.team === Team.B);
 
       if (hasTeamA && hasTeamB) {
-        const allReady = await this.redis.areAllPlayersReady(roomId, activePlayerIds);
+        const allReady = await this.redis.areAllPlayersReady(roomId, playerIds);
         if (allReady) {
           this.server.to(roomId).emit('all_ready');
         }
@@ -314,15 +331,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       sensorChecked: true,
     });
 
-    // 모든 플레이어 센서 확인 완료 체크 (호스트 제외)
+    // 모든 플레이어 센서 확인 완료 체크 (Host는 Player가 아니므로 필터링 불필요)
     const room = await this.roomsService.getRoomById(roomId);
-    
-    const activePlayerIds = room.players
-      .filter(p => !p.isHost)
-      .map(p => p.id);
+    const playerIds = room.players.map(p => p.id);
 
-    if (activePlayerIds.length > 0) {
-      const allChecked = await this.redis.areAllSensorChecked(roomId, activePlayerIds);
+    if (playerIds.length > 0) {
+      const allChecked = await this.redis.areAllSensorChecked(roomId, playerIds);
       if (allChecked) {
         this.server.to(roomId).emit('all_sensor_checked');
       }
@@ -459,13 +473,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       teamScores: result.scores,
       playerScores: room.players.map(p => ({
         playerId: p.id,
-        nickname: p.user.nickname,
+        nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임
         team: p.team,
         score: playerScores.get(p.id) || 0,
       })),
       mvp: mvpPlayer ? {
         playerId: mvpPlayer.id,
-        nickname: mvpPlayer.user.nickname,
+        nickname: (mvpPlayer as any).nickname, // Player 테이블의 고정된 닉네임
         score: maxScore,
       } : null,
     });

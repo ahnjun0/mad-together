@@ -145,7 +145,8 @@ export function useMobileSocket() {
   }, [token, roomId, playerId, myTeam]);
 
   // Join room function (HTTP API Call)
-  const joinRoom = async (code, nickname, googleToken = null) => {
+  // 프로필 정보(nickname, profileImage)는 방 입장 시 고정됨 (이후 변경 불가)
+  const joinRoom = async (code, nickname, profileImage = null, googleToken = null) => {
     try {
       let accessToken = null;
 
@@ -167,15 +168,17 @@ export function useMobileSocket() {
         // 2. Dev Login: Use temporary token
         accessToken = `dev-token-${Date.now()}`;
       }
-      
+
       // 3. Join Room with Access Token
+      // nickname과 profileImage는 방 입장 시 Player 레코드에 저장됨 (프로필 고정)
+      // 이미 참가한 플레이어의 경우 기존 프로필 정보 유지 (변경 불가)
       const response = await fetch(`${SERVER_URL}/api/rooms/${code}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ nickname }),
+        body: JSON.stringify({ nickname, profileImage }),
       });
 
       if (!response.ok) {
@@ -184,13 +187,21 @@ export function useMobileSocket() {
       }
 
       const data = await response.json();
-      
+
       // Store 업데이트 -> useEffect 트리거되어 소켓 연결됨
       setToken(accessToken);
       setPlayerId(data.playerId);
       setRoomId(data.roomId);
-      setNickname(nickname);
-      
+      // 서버에서 반환된 닉네임 사용 (기존 플레이어는 고정된 닉네임 반환)
+      setNickname(data.nickname || nickname);
+      // 서버에서 반환된 프로필 이미지 사용
+      useMobileStore.getState().setProfileImage(data.profileImage || profileImage);
+
+      // 기존 플레이어인 경우 알림
+      if (data.isExisting) {
+        console.log('[Mobile] 기존 플레이어로 재입장 (프로필 고정됨):', data.nickname);
+      }
+
       return data;
     } catch (error) {
       console.error('Error joining room:', error);

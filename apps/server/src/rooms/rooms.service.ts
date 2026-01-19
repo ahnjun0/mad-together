@@ -22,9 +22,9 @@ export class RoomsService {
   }
 
   async createRoom(
-    hostUserId: string, 
-    teamAName: string, 
-    teamBName: string, 
+    hostUserId: string,
+    teamAName: string,
+    teamBName: string,
     maxPlayers: number = 10,
     goalScore: number = 1000 // 기본값 1000
   ) {
@@ -45,6 +45,7 @@ export class RoomsService {
     // 1시간 후 만료
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
+    // Host는 Player로 등록하지 않음 (Observer로서 Room.hostId로만 관리)
     const room = await this.prisma.room.create({
       data: {
         code,
@@ -52,24 +53,19 @@ export class RoomsService {
         teamAName,
         teamBName,
         expiresAt,
-        players: {
-          create: {
-            userId: hostUserId,
-            isHost: true,
-          },
-        },
         ...({ maxPlayers } as any)
       },
       include: {
         players: {
           include: { user: true },
         },
+        host: true,
       },
     });
 
     // Redis 초기화
     await this.redis.initRoom(room.id);
-    
+
     // 목표 점수 설정
     await this.redis.setGoalScore(room.id, goalScore);
 
@@ -121,28 +117,38 @@ export class RoomsService {
     return room;
   }
 
-  async joinRoom(roomCode: string, userId: string) {
+  async joinRoom(roomCode: string, userId: string, nickname: string, profileImage?: string) {
     const room = await this.getRoomByCode(roomCode);
 
-    // 이미 참가한 경우 기존 player 반환 (상태 무관)
+    // Host는 게임에 참여할 수 없음 (Observer 전용)
+    if (room.hostId === userId) {
+      throw new BadRequestException('Host cannot join as a player');
+    }
+
+    // 이미 참가한 경우 기존 player 반환 (프로필 정보 고정 - 변경 불가)
     const existingPlayer = room.players.find(p => p.userId === userId);
     if (existingPlayer) {
-      return { room, player: existingPlayer };
+      console.log(`[RoomsService] Returning existing player: ${existingPlayer.id} (${existingPlayer.nickname})`);
+      return { room, player: existingPlayer, isExisting: true };
     }
 
     if (room.status !== RoomStatus.WAITING) {
       throw new BadRequestException('Room is not accepting new players');
     }
 
+    // 새 플레이어 생성 - 닉네임과 프로필 이미지 고정
     const player = await this.prisma.player.create({
       data: {
         userId,
         roomId: room.id,
+        nickname, // 방 입장 시 고정
+        profileImage: profileImage || null, // 방 입장 시 고정
       },
       include: { user: true },
     });
 
-    return { room, player };
+    console.log(`[RoomsService] Created new player: ${player.id} (${player.nickname})`);
+    return { room, player, isExisting: false };
   }
 
   async selectTeam(roomId: string, playerId: string, team: Team | null) {
@@ -236,11 +242,6 @@ export class RoomsService {
 
     if (!player) return;
 
-    // 호스트는 나갈 수 없음
-    if (player.isHost) {
-      throw new BadRequestException('Host cannot leave the room');
-    }
-
     await this.prisma.player.delete({
       where: { id: playerId },
     });
@@ -258,6 +259,26 @@ export class RoomsService {
       where: { roomId, team },
       include: { user: true },
     });
+  }
+
+  // Host의 진행 중인 방 조회 (FINISHED 상태 제외)
+  async getActiveRoomByHost(hostUserId: string) {
+    const room = await this.prisma.room.findFirst({
+      where: {
+        hostId: hostUserId,
+        status: { not: RoomStatus.FINISHED },
+        expiresAt: { gt: new Date() }, // 만료되지 않은 방
+      },
+      include: {
+        players: {
+          include: { user: true },
+        },
+        host: true,
+      },
+      orderBy: { createdAt: 'desc' }, // 가장 최근 방
+    });
+
+    return room;
   }
 
   // 방 정리 (만료된 방 삭제)

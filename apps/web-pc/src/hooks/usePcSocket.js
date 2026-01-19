@@ -27,13 +27,19 @@ export function usePcSocket() {
     removePlayer,
     setRoomInfo,
     setConnected,
-    hostDevToken,
+    accessToken, // 인증 토큰 (hostDevToken 대신)
     roomInfo,
   } = useGameStore();
 
   useEffect(() => {
     // 토큰이 변경되었거나 소켓이 없으면 새로 연결
-    const authToken = hostDevToken || null;
+    const authToken = accessToken || null;
+
+    // 토큰이 없으면 연결하지 않음
+    if (!authToken) {
+      console.log('[PC] 🔒 No auth token, skipping socket connection');
+      return;
+    }
 
     // 이미 같은 토큰으로 연결된 소켓이 있으면 재사용
     if (socketInstance && currentAuthToken === authToken && socketInstance.connected) {
@@ -89,12 +95,13 @@ export function usePcSocket() {
       }
 
       // 연결 완료 후 roomInfo가 있으면 자동으로 join_room 실행
+      // Host는 Player가 아니므로 playerId 없이 입장
       const currentRoomInfo = useGameStore.getState().roomInfo;
-      if (currentRoomInfo.roomId && currentRoomInfo.hostPlayerId) {
-        console.log('[Socket] 🏠 Auto-joining room after connect:', currentRoomInfo.roomId);
+      if (currentRoomInfo.roomId) {
+        console.log('[Socket] Host (observer) auto-joining room:', currentRoomInfo.roomId);
         socket.emit('join_room', {
           roomId: currentRoomInfo.roomId,
-          playerId: currentRoomInfo.hostPlayerId
+          // playerId 없음 - Host는 Observer
         });
       }
     });
@@ -361,7 +368,7 @@ export function usePcSocket() {
       // socket.off('room_state');
       // etc...
     };
-  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, hostDevToken]);
+  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, accessToken]);
 
   // 소켓 연결 대기 헬퍼
   const waitForConnection = useCallback(async () => {
@@ -376,20 +383,24 @@ export function usePcSocket() {
   }, []);
 
   // Emit functions - 싱글톤 소켓 사용
-  const joinRoom = useCallback(async (roomId, playerId) => {
-    console.log('[Socket] 📡 joinRoom called:', { roomId, playerId });
+  // Host는 playerId 없이, Player는 playerId와 함께 입장
+  const joinRoom = useCallback(async (roomId, playerId = null) => {
+    console.log('[Socket] joinRoom called:', { roomId, playerId, isHost: !playerId });
 
     // 소켓 연결 대기
     if (!socketInstance?.connected) {
-      console.log('[Socket] ⏳ Waiting for socket connection...');
+      console.log('[Socket] Waiting for socket connection...');
       await waitForConnection();
     }
 
     if (socketInstance?.connected) {
-      console.log('[Socket] 📡 Emitting join_room:', { roomId, playerId });
-      socketInstance.emit('join_room', { roomId, playerId });
+      const payload = playerId
+        ? { roomId, playerId } // Player 입장
+        : { roomId }; // Host (observer) 입장
+      console.log('[Socket] Emitting join_room:', payload);
+      socketInstance.emit('join_room', payload);
     } else {
-      console.warn('[Socket] ⚠️ Socket not connected, cannot join room');
+      console.warn('[Socket] Socket not connected, cannot join room');
     }
   }, [waitForConnection]);
 

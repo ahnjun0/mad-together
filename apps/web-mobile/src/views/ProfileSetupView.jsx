@@ -62,7 +62,8 @@ export default function ProfileSetupView() {
       // 2. Join Room
       const targetCode = useMobileStore.getState().pendingRoomCode;
       if (targetCode) {
-          await joinRoom(targetCode, data.nickname, null);
+          // 서버에서 반환된 profileImage를 joinRoom에 전달 (null 아님)
+          await joinRoom(targetCode, data.nickname, data.profileImage);
       }
 
     } catch (err) {

@@ -12,11 +12,12 @@ export default function WaitingView() {
     // 소켓이 연결되었고 방 정보가 있지만 플레이어가 없으면 방에 재입장
     const allPlayers = [...(players.A || []), ...(players.B || []), ...(players.unassigned || [])];
 
-    if (socketConnected && roomInfo.roomId && roomInfo.hostPlayerId && allPlayers.length === 0) {
-      console.log('[WaitingView] 🔄 Rejoining room after reconnect...');
-      joinRoom(roomInfo.roomId, roomInfo.hostPlayerId);
+    if (socketConnected && roomInfo.roomId && allPlayers.length === 0) {
+      console.log('[WaitingView] 🔄 Host rejoining room after reconnect...');
+      // Host는 Player가 아니므로 playerId 없이 입장 (Observer)
+      joinRoom(roomInfo.roomId);
     }
-  }, [socketConnected, roomInfo.roomId, roomInfo.hostPlayerId, players, joinRoom]);
+  }, [socketConnected, roomInfo.roomId, players, joinRoom]);
 
   // players가 객체 형태로 저장됨: { A: [], B: [], unassigned: [] }
   const teamA_players = Array.isArray(players) 

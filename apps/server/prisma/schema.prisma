@@ -46,6 +46,7 @@ enum RoomStatus {
 }
 
 // 방 참가자 (방마다 생성되는 임시 레코드)
+// Host(방장)는 Player로 등록되지 않음 - Room.hostId로만 관리
 model Player {
   id        String  @id @default(cuid())
 
@@ -55,8 +56,11 @@ model Player {
   roomId    String
   room      Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
+  // 방 입장 시 고정되는 프로필 정보 (이후 변경 불가)
+  nickname     String   // 게임 내 표시 닉네임
+  profileImage String?  // 게임 내 프로필 이미지
+
   team      Team?   // null = 미배정, A or B
-  isHost    Boolean @default(false)
   isLeader  Boolean @default(false) // 팀장 여부
 
   createdAt DateTime @default(now())

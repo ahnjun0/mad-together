@@ -38,6 +38,16 @@ class SelectTeamDto {
   team: Team | null;
 }
 
+class JoinRoomDto {
+  @IsString()
+  @IsNotEmpty()
+  nickname: string;
+
+  @IsString()
+  @IsOptional()
+  profileImage?: string;
+}
+
 @Controller('rooms')
 @UseGuards(JwtAuthGuard)
 export class RoomsController {
@@ -66,6 +76,38 @@ export class RoomsController {
     };
   }
 
+  // Host의 진행 중인 게임 조회
+  @Get('active/me')
+  async getActiveRoom(@CurrentUser() user: any) {
+    const room = await this.roomsService.getActiveRoomByHost(user.id);
+
+    if (!room) {
+      return { hasActiveRoom: false, room: null };
+    }
+
+    const baseUrl = process.env.MOBILE_WEB_URL || 'https://madcamp.cloud/mobile';
+    const qrCode = await this.roomsService.generateQRCode(room.code, baseUrl);
+
+    return {
+      hasActiveRoom: true,
+      room: {
+        roomId: room.id,
+        code: room.code,
+        qrCode,
+        status: room.status,
+        teamAName: room.teamAName,
+        teamBName: room.teamBName,
+        players: room.players.map(p => ({
+          id: p.id,
+          nickname: p.nickname, // Player 테이블의 고정된 닉네임 사용
+          profileImage: p.profileImage,
+          team: p.team,
+          isLeader: p.isLeader,
+        })),
+      },
+    };
+  }
+
   @Get(':code')
   async getRoomByCode(@Param('code') code: string) {
     const room = await this.roomsService.getRoomByCode(code);
@@ -81,16 +123,26 @@ export class RoomsController {
       },
       players: room.players.map(p => ({
         id: p.id,
-        nickname: p.user.nickname,
+        nickname: p.nickname, // Player 테이블의 고정된 닉네임 사용
+        profileImage: p.profileImage,
         team: p.team,
-        isHost: p.isHost,
+        isLeader: p.isLeader,
       })),
     };
   }
 
   @Post(':code/join')
-  async joinRoom(@Param('code') code: string, @CurrentUser() user: any) {
-    const { room, player } = await this.roomsService.joinRoom(code, user.id);
+  async joinRoom(
+    @Param('code') code: string,
+    @CurrentUser() user: any,
+    @Body() dto: JoinRoomDto,
+  ) {
+    const { room, player, isExisting } = await this.roomsService.joinRoom(
+      code,
+      user.id,
+      dto.nickname,
+      dto.profileImage,
+    );
 
     return {
       roomId: room.id,
@@ -99,6 +151,9 @@ export class RoomsController {
       status: room.status,
       teamAName: room.teamAName,
       teamBName: room.teamBName,
+      nickname: player.nickname, // 고정된 닉네임 반환
+      profileImage: player.profileImage,
+      isExisting, // 기존 플레이어인지 여부
     };
   }
 

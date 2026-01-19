@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { createRoom, generateDevToken } from '../api/room';
+import { createRoom } from '../api/room';
 import { usePcSocket } from '../hooks/usePcSocket';
 
 export default function HomeView() {
@@ -10,7 +10,7 @@ export default function HomeView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { setRoomInfo, setGameState, setHost, setHostDevToken } = useGameStore();
+  const { setRoomInfo, setGameState, accessToken, user, logout } = useGameStore();
   const { joinRoom, waitForConnection } = usePcSocket();
 
   const handleCreateRoom = async (e) => {
@@ -19,13 +19,10 @@ export default function HomeView() {
     setLoading(true);
 
     try {
-      // 개발 모드 토큰 생성 (실제 프로덕션에서는 Firebase 토큰 사용)
-      const devToken = generateDevToken('host');
-      setHostDevToken(devToken); // Store에 토큰 저장
+      // 이미 로그인된 상태이므로 accessToken 사용
+      const roomData = await createRoom(teamAName, teamBName, maxPlayers, accessToken);
 
-      const roomData = await createRoom(teamAName, teamBName, maxPlayers, devToken);
-
-      // Update store with room info (소켓이 연결되면 자동으로 join_room 실행됨)
+      // Update store with room info
       setRoomInfo({
         roomId: roomData.roomId,
         code: roomData.code,
@@ -34,21 +31,19 @@ export default function HomeView() {
         teamBName: roomData.teamBName,
         maxPlayers: roomData.maxPlayers,
         status: 'WAITING',
-        hostPlayerId: roomData.hostPlayerId, // 호스트 playerId 저장
       });
 
-      // Set as host and transition to waiting view
-      setHost(true);
+      // Transition to waiting view
       setGameState('WAITING');
 
-      // 소켓 연결 대기 후 명시적으로 joinRoom 호출
-      // usePcSocket의 connect 이벤트에서도 자동 호출되지만, 확실히 하기 위해 명시적 호출
-      console.log('[HomeView] 🏠 Room created, waiting for socket connection...');
+      // 소켓 연결 대기 후 Host로서 방에 입장
+      console.log('[HomeView] Room created, waiting for socket connection...');
       await waitForConnection();
 
-      if (roomData.roomId && roomData.hostPlayerId) {
-        console.log('[HomeView] 🏠 Socket connected, joining room...');
-        await joinRoom(roomData.roomId, roomData.hostPlayerId);
+      if (roomData.roomId) {
+        console.log('[HomeView] Socket connected, joining room as host...');
+        // Host는 playerId 없이 입장 (Observer)
+        await joinRoom(roomData.roomId);
       }
     } catch (err) {
       setError(err.message || '방 생성에 실패했습니다.');
@@ -59,6 +54,20 @@ export default function HomeView() {
 
   return (
     <div className="w-full h-full flex items-center justify-center p-8 bg-cyan-200">
+      {/* 사용자 정보 및 로그아웃 */}
+      <div className="fixed top-4 right-4 flex items-center gap-3 bg-white/90 rounded-full px-4 py-2 shadow-md">
+        {user.profileImage && (
+          <img src={user.profileImage} alt="Profile" className="w-8 h-8 rounded-full" />
+        )}
+        <span className="text-gray-700 font-medium">{user.nickname}</span>
+        <button
+          onClick={logout}
+          className="text-red-500 hover:text-red-700 text-sm font-medium"
+        >
+          로그아웃
+        </button>
+      </div>
+
       <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-outline text-white text-center mb-8">
           새 게임 생성
