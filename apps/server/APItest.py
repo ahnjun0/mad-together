@@ -185,7 +185,7 @@ def main():
         res = requests.post(
             f"{API_URL}/rooms",
             headers={"Authorization": f"Bearer {host_token}"},
-            json={"teamAName": "불꽃팀", "teamBName": "파도팀", "maxPlayers": 10}
+            json={"teamAName": "불꽃팀", "teamBName": "파도팀", "maxPlayers": 10, "goalScore": 100}
         )
         res.raise_for_status()
         room_data = res.json()

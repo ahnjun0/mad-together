@@ -20,12 +20,12 @@
 │    User     │       │    Room     │       │    Game     │
 ├─────────────┤       ├─────────────┤       ├─────────────┤
 │ id (PK)     │◄──┐   │ id (PK)     │◄──────│ id (PK)     │
-│ firebaseUid │   │   │ code        │       │ roomId (FK) │
+│ googleId    │   │   │ code        │       │ roomId (FK) │
 │ nickname    │   │   │ hostId (FK) │───┐   │ winnerTeam  │
-│ createdAt   │   │   │ status      │   │   │ teamAScore  │
-└─────────────┘   │   │ teamAName   │   │   │ teamBScore  │
-                  │   │ teamBName   │   │   │ startedAt   │
-                  │   │ maxPlayers  │   │   │ endedAt     │
+│ profileImage│   │   │ status      │   │   │ teamAScore  │
+│ refreshToken│   │   │ teamAName   │   │   │ teamBScore  │
+│ createdAt   │   │   │ teamBName   │   │   │ startedAt   │
+└─────────────┘   │   │ maxPlayers  │   │   │ endedAt     │
                   │   │ createdAt   │   │   └─────────────┘
                   │   │ expiresAt   │   │
                   │   └─────────────┘   │
@@ -47,13 +47,15 @@
 
 ### User (사용자)
 
-Firebase Auth와 연동되는 사용자 정보를 저장합니다.
+Google Auth와 연동되는 사용자 정보를 저장합니다.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `String` | PK, CUID | 고유 식별자 |
-| `firebaseUid` | `String` | UNIQUE, NOT NULL | Firebase 사용자 UID |
+| `googleId` | `String` | UNIQUE, NOT NULL | Google 사용자 UID |
 | `nickname` | `String` | NOT NULL | 닉네임 (사용자 설정) |
+| `profileImage` | `String?` | NULLABLE | 프로필 이미지 URL |
+| `currentRefreshToken` | `String?` | NULLABLE | JWT Refresh Token (Hashed) |
 | `createdAt` | `DateTime` | NOT NULL, DEFAULT NOW | 가입 일시 |
 
 **Relations:**
@@ -79,16 +81,18 @@ Firebase Auth와 연동되는 사용자 정보를 저장합니다.
 | `expiresAt` | `DateTime` | NOT NULL | 만료 일시 (생성 후 1시간) |
 
 **RoomStatus Enum:**
-```typescript
-enum RoomStatus {
-  WAITING   = 'WAITING'   // 대기 중 (입장 가능)
-  CINEMATIC = 'CINEMATIC' // 시네마틱 영상 재생
-  TUTORIAL  = 'TUTORIAL'  // 튜토리얼/센서 확인
-  CASTING   = 'CASTING'   // 팀장이 캐스팅 중
-  PLAYING   = 'PLAYING'   // 게임 진행 중
-  FINISHED  = 'FINISHED'  // 게임 종료
-}
-```
+
+게임의 진행 단계에 따라 방의 상태가 변경됩니다.
+
+| Status | Name | 상세 설명 |
+|--------|------|-----------|
+| `WAITING` | **대기실** | 초기 상태. 플레이어들이 입장하여 팀을 선택하고 준비(`Ready`)를 완료하는 단계입니다. 모든 인원이 준비되면 호스트가 게임을 시작할 수 있습니다. |
+| `CINEMATIC` | **시네마틱** | 게임의 몰입감을 높이는 인트로 영상 재생 단계입니다. PC 화면에서는 영상을 보여주고, 모바일에서는 출항 느낌의 진동(Haptic) 피드백을 제공합니다. |
+| `TUTORIAL` | **튜토리얼** | 게임 조작법 안내 및 센서 확인 단계입니다. 모든 플레이어가 휴대폰을 흔들어 가속도 센서의 작동 여부를 서버에 증명(`sensor_checked`)해야 다음으로 넘어갑니다. |
+| `CASTING` | **캐스팅** | 팀별 팀장이 낚싯줄을 던지는 단계입니다. 팀장은 폰을 크게 휘둘러 가속도 피크값(`power`)을 전송하며, 양 팀의 투척이 완료되면 경기가 시작됩니다. |
+| `PLAYING` | **경기 진행** | 메인 게임 단계입니다. 모든 팀원이 휴대폰을 흔들어 점수를 올리며, 서버는 실시간으로 점수를 집계하여 팀별 물고기 거리를 업데이트합니다. |
+| `FINISHED` | **게임 종료** | 목표 점수에 도달하거나 경기가 끝난 상태입니다. 최종 승리 팀과 MVP, 개인별 기여도를 리더보드 형태로 보여주고 게임 로그를 DB에 영구 저장합니다. |
+
 
 **Relations:**
 - `host`: 방장 User (N:1)
@@ -162,10 +166,11 @@ room:{roomId}:player:{playerId}  → 플레이어별 상태 (Hash)
 |-------|------|-------------|
 | `score:A` | `Int` | A팀 현재 점수 |
 | `score:B` | `Int` | B팀 현재 점수 |
+| `goalScore` | `Int` | 게임 목표 점수 (기본값 1000) |
 
 **예시:**
 ```redis
-HSET room:abc123 score:A 450 score:B 380
+HSET room:abc123 score:A 450 score:B 380 goalScore 100
 HGET room:abc123 score:A  → "450"
 HINCRBY room:abc123 score:A 5  → 455
 ```
@@ -195,7 +200,7 @@ HINCRBY room:abc123:player:xyz789 score 5  → 5
 ```
 [방 생성]
   └─→ PostgreSQL: Room 생성
-  └─→ Redis: room:{roomId} 초기화 (score:A=0, score:B=0)
+  └─→ Redis: room:{roomId} 초기화 (score:A=0, score:B=0, goalScore=1000)
 
 [플레이어 입장]
   └─→ PostgreSQL: Player 생성

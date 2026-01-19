@@ -38,19 +38,12 @@
 
 ## Authentication
 
-모든 API는 Firebase Authentication을 사용합니다.
+모든 API는 JWT Authentication을 사용합니다. Google Login을 통해 Access/Refresh Token을 발급받습니다.
 
 ### Header
 
 ```
-Authorization: Bearer {Firebase ID Token}
-```
-
-### Token 획득 (Frontend)
-
-```typescript
-const user = firebase.auth().currentUser;
-const idToken = await user.getIdToken();
+Authorization: Bearer {Access Token}
 ```
 
 ---
@@ -59,16 +52,15 @@ const idToken = await user.getIdToken();
 
 ## Auth (인증)
 
-### POST /api/auth/register
+### POST /api/auth/login/google
 
-신규 사용자 등록 또는 기존 사용자 조회
+구글 로그인 및 토큰 발급
 
 **Request:**
 
 ```json
 {
-  "idToken": "Firebase ID Token",
-  "nickname": "홍길동"
+  "token": "Google ID Token"
 }
 ```
 
@@ -76,22 +68,29 @@ const idToken = await user.getIdToken();
 
 ```json
 {
-  "userId": "clxxx...",
-  "nickname": "홍길동"
+  "accessToken": "ey...",
+  "refreshToken": "ey...",
+  "user": {
+    "id": "clxxx...",
+    "nickname": "홍길동",
+    "googleName": "홍길동(구글)",
+    "profileImage": "https://..."
+  }
 }
 ```
 
 ---
 
-### POST /api/auth/nickname
+### POST /api/auth/refresh
 
-닉네임 변경 (인증 필요)
+토큰 갱신
 
 **Request:**
 
 ```json
 {
-  "nickname": "새닉네임"
+  "userId": "clxxx...",
+  "refreshToken": "ey..."
 }
 ```
 
@@ -99,8 +98,29 @@ const idToken = await user.getIdToken();
 
 ```json
 {
+  "accessToken": "ey...",
+  "refreshToken": "ey..."
+}
+```
+
+---
+
+### POST /api/auth/profile
+
+프로필 수정 (닉네임, 이미지) - `multipart/form-data`
+
+**Request:**
+
+- `nickname`: 새로운 닉네임
+- `file`: 이미지 파일 (Optional)
+
+**Response (200 OK):**
+
+```json
+{
   "userId": "clxxx...",
-  "nickname": "새닉네임"
+  "nickname": "새닉네임",
+  "profileImage": "/uploads/..."
 }
 ```
 
@@ -118,7 +138,8 @@ const idToken = await user.getIdToken();
 {
   "teamAName": "불꽃팀",
   "teamBName": "파도팀",
-  "maxPlayers": 10
+  "maxPlayers": 10,
+  "goalScore": 1000  // Optional (기본값 1000)
 }
 ```
 
@@ -139,6 +160,7 @@ const idToken = await user.getIdToken();
 
 - `code`: 6자리 입장 코드 (QR에 포함)
 - `qrCode`: Base64 인코딩된 QR 이미지
+- `goalScore`: 게임 승리를 위한 목표 점수
 - 방은 생성 후 1시간 뒤 만료됩니다
 
 ---
@@ -277,7 +299,7 @@ wss://{domain}/game
 ```typescript
 const socket = io('wss://domain/game', {
   auth: {
-    token: firebaseIdToken
+    token: accessToken // JWT Access Token
   }
 });
 ```
@@ -351,6 +373,16 @@ socket.emit('start_tutorial');
 
 ---
 
+### `start_cinematic`
+
+시네마틱 영상 시작 - **PC (호스트 전용)**
+
+```typescript
+socket.emit('start_cinematic');
+```
+
+---
+
 ### `select_leaders`
 
 팀장 랜덤 선정 - **PC (호스트 전용)**
@@ -367,6 +399,18 @@ socket.emit('select_leaders');
 
 ```typescript
 socket.emit('start_casting');
+```
+
+---
+
+### `cast_action`
+
+캐스팅 액션 (파워 전송) - **Mobile (팀장 전용)**
+
+```typescript
+socket.emit('cast_action', {
+  power: 45 // 가속도 센서 값
+});
 ```
 
 ---
@@ -404,30 +448,6 @@ socket.emit('shake', {
 });
 ```
 
-**Schmitt Trigger 방식 (프론트엔드 구현):**
-
-```typescript
-// 가속도계에서 power = sqrt(x² + y² + z²) 계산
-// 역치(threshold) 이상 올라갔다가 내려오면 1회로 카운트
-const THRESHOLD_HIGH = 15;  // 흔들기 시작 감지
-const THRESHOLD_LOW = 10;   // 흔들기 종료 감지
-
-let isShaking = false;
-
-function onAccelerometerData(x, y, z) {
-  const power = Math.sqrt(x*x + y*y + z*z);
-
-  if (!isShaking && power > THRESHOLD_HIGH) {
-    isShaking = true;
-  } else if (isShaking && power < THRESHOLD_LOW) {
-    isShaking = false;
-    socket.emit('shake', { count: 1 });
-    // 진동 피드백
-    navigator.vibrate(50);
-  }
-}
-```
-
 ---
 
 ## Server → Client Events
@@ -453,6 +473,7 @@ socket.on('room_state', (data) => {
         nickname: "플레이어1",
         team: "A",
         isHost: true,
+        isLeader: true, // 팀장 여부
         isReady: true,
         sensorChecked: false,
         score: 0
@@ -506,7 +527,7 @@ socket.on('player_disconnected', (data) => {
 
 ```typescript
 socket.on('player_updated', (data) => {
-  // 팀 변경: { playerId: "plxxx...", team: "A" }
+  // 팀 변경: { playerId: "plxxx...", team: "A", isLeader: true }
   // 준비 상태: { playerId: "plxxx...", isReady: true }
   // 센서 확인: { playerId: "plxxx...", sensorChecked: true }
 });
@@ -546,6 +567,19 @@ socket.on('all_sensor_checked', () => {
 socket.on('tutorial_started', () => {
   // PC: 튜토리얼 안내 화면 표시
   // Mobile: 센서 테스트 UI 표시
+});
+```
+
+---
+
+### `cinematic_started`
+
+시네마틱 시작됨
+
+```typescript
+socket.on('cinematic_started', () => {
+  // PC: 영상 재생
+  // Mobile: 진동 피드백
 });
 ```
 
@@ -639,26 +673,6 @@ socket.on('score_update', (data) => {
 
   // PC: 물고기 위치 업데이트, 닉네임 표시 애니메이션
   // Mobile: 팀 점수 표시 업데이트
-});
-```
-
-**PC에서 물고기 그래픽 처리 예시:**
-
-```typescript
-socket.on('score_update', (data) => {
-  const { teams, event } = data;
-  const total = teams.A + teams.B;
-
-  // 물고기 위치 계산 (0 = B팀 쪽, 1 = A팀 쪽)
-  const fishPosition = total > 0 ? teams.A / total : 0.5;
-
-  // 물고기 애니메이션 업데이트
-  updateFishPosition(fishPosition);
-
-  // 누가 흔들었는지 표시
-  if (event) {
-    showFloatingNickname(event.nickname, event.team);
-  }
 });
 ```
 
@@ -758,11 +772,20 @@ socket.on('game_ended', (data) => {
      │              leaders_selected              │
      │◄────────────────────────────────────────────►
      │                                            │
+     │  start_cinematic (호스트)                   │
+     │─────────────────────────────────────────────►
+     │                                            │
+     │              cinematic_started             │
+     │◄────────────────────────────────────────────►
+     │                                            │
      │  start_casting (호스트)                     │
      │─────────────────────────────────────────────►
      │                                            │
      │              casting_phase                 │
      │◄────────────────────────────────────────────►
+     │                                            │
+     │                                   cast_action (파워)
+     │◄─────────────────────────────────────────────
      │                                            │
      │                                   cast_complete (팀장)
      │◄─────────────────────────────────────────────
@@ -795,137 +818,4 @@ socket.on('game_ended', (data) => {
      │    │   - MVP              │       │   - 팀 결과           │
      │    │   - 전체 순위        │       │   - MVP               │
      │    └──────────────────────┘       └──────────────────────┘
-```
-
----
-
-## Error Handling
-
-### HTTP Errors
-
-| Status                        | Description                          |
-| ----------------------------- | ------------------------------------ |
-| `400 Bad Request`           | 잘못된 요청 (만료된 방, 잘못된 상태) |
-| `401 Unauthorized`          | 인증 실패 (토큰 없음/만료)           |
-| `404 Not Found`             | 리소스를 찾을 수 없음                |
-| `500 Internal Server Error` | 서버 오류                            |
-
-### WebSocket Errors
-
-연결 실패 시 자동 disconnect됩니다.
-
-```typescript
-socket.on('disconnect', (reason) => {
-  console.log('Disconnected:', reason);
-});
-
-socket.on('connect_error', (error) => {
-  console.log('Connection failed:', error.message);
-});
-```
-
----
-
-## Frontend Integration Examples
-
-### Mobile - 흔들기 감지 (React Native / Web)
-
-```typescript
-// Schmitt Trigger 방식 흔들기 감지
-class ShakeDetector {
-  private isShaking = false;
-  private socket: Socket;
-
-  private readonly THRESHOLD_HIGH = 15;
-  private readonly THRESHOLD_LOW = 10;
-
-  constructor(socket: Socket) {
-    this.socket = socket;
-  }
-
-  handleAccelerometer(x: number, y: number, z: number) {
-    const power = Math.sqrt(x*x + y*y + z*z);
-
-    if (!this.isShaking && power > this.THRESHOLD_HIGH) {
-      this.isShaking = true;
-    } else if (this.isShaking && power < this.THRESHOLD_LOW) {
-      this.isShaking = false;
-      this.onShake();
-    }
-  }
-
-  private onShake() {
-    // 서버에 흔들기 이벤트 전송
-    this.socket.emit('shake', { count: 1 });
-
-    // 진동 피드백 (50ms)
-    if ('vibrate' in navigator) {
-      navigator.vibrate(50);
-    }
-  }
-}
-
-// 사용 예시
-const detector = new ShakeDetector(socket);
-
-// DeviceMotion API (Web)
-window.addEventListener('devicemotion', (e) => {
-  const { x, y, z } = e.accelerationIncludingGravity;
-  detector.handleAccelerometer(x, y, z);
-});
-```
-
-### PC - 물고기 애니메이션 (React)
-
-```typescript
-function FishGame() {
-  const [fishPosition, setFishPosition] = useState(0.5);
-  const [recentShakes, setRecentShakes] = useState<ShakeEvent[]>([]);
-
-  useEffect(() => {
-    socket.on('score_update', (data) => {
-      const { teams, event } = data;
-      const total = teams.A + teams.B;
-
-      // 물고기 위치 계산 (0~1, 0.5가 중앙)
-      const newPosition = total > 0 ? teams.A / total : 0.5;
-      setFishPosition(newPosition);
-
-      // 흔든 사람 표시
-      if (event) {
-        setRecentShakes(prev => [
-          ...prev.slice(-10),
-          { ...event, id: Date.now() }
-        ]);
-      }
-    });
-
-    return () => socket.off('score_update');
-  }, []);
-
-  return (
-    <div className="game-container">
-      {/* 물고기 */}
-      <Fish
-        style={{
-          left: `${fishPosition * 100}%`,
-          transition: 'left 0.1s ease-out'
-        }}
-      />
-
-      {/* 흔든 사람 닉네임 표시 */}
-      {recentShakes.map(shake => (
-        <FloatingNickname
-          key={shake.id}
-          nickname={shake.nickname}
-          team={shake.team}
-        />
-      ))}
-
-      {/* 팀별 영역 */}
-      <TeamArea side="left" team="B" />
-      <TeamArea side="right" team="A" />
-    </div>
-  );
-}
 ```

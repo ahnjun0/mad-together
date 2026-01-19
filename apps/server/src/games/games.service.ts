@@ -19,11 +19,28 @@ export class GamesService {
       this.roomsService.getPlayersByTeam(roomId, Team.B),
     ]);
 
-    const teamALeader = teamAPlayers.find(p => (p as any).isLeader);
-    const teamBLeader = teamBPlayers.find(p => (p as any).isLeader);
+    let teamALeader = teamAPlayers.find(p => (p as any).isLeader);
+    let teamBLeader = teamBPlayers.find(p => (p as any).isLeader);
+
+    // 팀장은 없는데 플레이어는 있다면, 첫 번째 플레이어를 팀장으로 승격
+    if (!teamALeader && teamAPlayers.length > 0) {
+      teamALeader = teamAPlayers[0];
+      await this.prisma.player.update({
+        where: { id: teamALeader.id },
+        data: { ...({ isLeader: true } as any) },
+      });
+    }
+
+    if (!teamBLeader && teamBPlayers.length > 0) {
+      teamBLeader = teamBPlayers[0];
+      await this.prisma.player.update({
+        where: { id: teamBLeader.id },
+        data: { ...({ isLeader: true } as any) },
+      });
+    }
 
     if (!teamALeader || !teamBLeader) {
-      throw new Error('Each team must have a leader');
+      throw new Error('Each team must have at least one player to select a leader');
     }
 
     // Redis에 팀장 상태 저장 (게임 로직용)

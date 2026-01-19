@@ -166,16 +166,15 @@ export class AuthService {
 
   async getOrCreateDevUser(token: string) {
     const devUid = `dev-uid-${token}`;
-    let user = await this.prisma.user.findUnique({ where: { googleId: devUid } });
-
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          googleId: devUid,
-          nickname: `테스터-${token.split('-').pop()}`,
-        },
-      });
-    }
-    return user;
+    
+    // upsert를 사용하여 동시성 문제 해결 (없으면 생성, 있으면 리턴)
+    return this.prisma.user.upsert({
+      where: { googleId: devUid },
+      update: {}, // 이미 존재하면 아무것도 안 함 (그냥 리턴)
+      create: {
+        googleId: devUid,
+        nickname: `테스터-${token.split('-').pop()}`,
+      },
+    });
   }
 }
