@@ -12,15 +12,29 @@ import { RoomsService } from './rooms.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Team } from '@prisma/client';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum, ValidateIf } from 'class-validator';
 
 class CreateRoomDto {
+  @IsString()
+  @IsNotEmpty()
   teamAName: string;
+
+  @IsString()
+  @IsNotEmpty()
   teamBName: string;
+
+  @IsNumber()
+  @IsOptional()
   maxPlayers: number;
+
+  @IsNumber()
+  @IsOptional()
   goalScore?: number; // 목표 점수 (옵션)
 }
 
 class SelectTeamDto {
+  @ValidateIf((object, value) => value !== null)
+  @IsEnum(Team)
   team: Team | null;
 }
 

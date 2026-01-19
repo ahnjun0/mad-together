@@ -65,7 +65,7 @@ def on_leaders(data):
     time.sleep(2)
     log("HOST", "Starting Cinematic Sequence...")
     sio_host.emit('start_cinematic', namespace=NAMESPACE)
-    
+
     # 시네마틱 5초 후 캐스팅 단계로 전환 시뮬레이션
     time.sleep(5)
     log("HOST", "Cinematic Finished. Starting Casting Phase...")
@@ -81,7 +81,7 @@ def check_casting_complete(data):
     team = data.get('team')
     log("HOST", f"🎣 Team {team} Casted!")
     casted_teams.add(team)
-    
+
     if 'A' in casted_teams and 'B' in casted_teams:
         log("HOST", "⚔️ Both Teams Casted! Starting Countdown in 2s...")
         time.sleep(2)
@@ -151,7 +151,7 @@ def setup_bot_handlers(sio, bot_name):
         sio.emit('cast_action', {'power': random.randint(30, 80)}, namespace=NAMESPACE)
         sio.emit('cast_complete', {'team': 'A' if 'A' in bot_name else 'B'}, namespace=NAMESPACE)
 
-setup_bot_handlers(sio_bot_a, BOT_A_NAME)
+# setup_bot_handlers(sio_bot_a, BOT_A_NAME)
 setup_bot_handlers(sio_bot_b, BOT_B_NAME)
 
 # --------------------------------------------------------------------------------
@@ -193,16 +193,16 @@ def main():
         sio_host.emit('join_room', {'roomId': room_id, 'playerId': host_player_id}, namespace=NAMESPACE)
 
         # 3. 봇 A 입장 (Team A)
-        log("MAIN", "Step 2: Bot A joining Team A...")
-        bot_a_token = f"dev-token-{BOT_A_NAME}"
-        res_join_a = requests.post(f"{API_URL}/rooms/{room_code}/join", headers={"Authorization": f"Bearer {bot_a_token}"})
-        bot_a_player_id = res_join_a.json()['playerId']
-        sio_bot_a.connect(SOCKET_URL, auth={'token': bot_a_token}, namespaces=[NAMESPACE])
-        sio_bot_a.emit('join_room', {'roomId': room_id, 'playerId': bot_a_player_id}, namespace=NAMESPACE)
-        time.sleep(0.5)
-        sio_bot_a.emit('select_team', {'team': 'A'}, namespace=NAMESPACE)
-        time.sleep(0.2)
-        sio_bot_a.emit('toggle_ready', {}, namespace=NAMESPACE)
+        # log("MAIN", "Step 2: Bot A joining Team A...")
+        # bot_a_token = f"dev-token-{BOT_A_NAME}"
+        # res_join_a = requests.post(f"{API_URL}/rooms/{room_code}/join", headers={"Authorization": f"Bearer {bot_a_token}"})
+        # bot_a_player_id = res_join_a.json()['playerId']
+        # sio_bot_a.connect(SOCKET_URL, auth={'token': bot_a_token}, namespaces=[NAMESPACE])
+        # sio_bot_a.emit('join_room', {'roomId': room_id, 'playerId': bot_a_player_id}, namespace=NAMESPACE)
+        # time.sleep(0.5)
+        # sio_bot_a.emit('select_team', {'team': 'A'}, namespace=NAMESPACE)
+        # time.sleep(0.2)
+        # sio_bot_a.emit('toggle_ready', {}, namespace=NAMESPACE)
 
         # 4. 봇 B 입장 (Team B)
         log("MAIN", "Step 3: Bot B joining Team B...")
