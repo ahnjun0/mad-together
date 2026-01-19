@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useGameStore } from '../store/useGameStore';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud/api';
+const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
 export default function LoginView() {
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export default function LoginView() {
 
     try {
       // 1. Google 토큰으로 서버 인증
-      const authRes = await fetch(`${API_URL}/auth/login/google`, {
+      const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: credentialResponse.credential }),
@@ -32,7 +32,7 @@ export default function LoginView() {
       setAuth(authData.accessToken, authData.user);
 
       // 3. 진행 중인 게임 확인
-      const activeRoomRes = await fetch(`${API_URL}/rooms/active/me`, {
+      const activeRoomRes = await fetch(`${SERVER_URL}/api/rooms/active/me`, {
         headers: {
           'Authorization': `Bearer ${authData.accessToken}`,
         },
