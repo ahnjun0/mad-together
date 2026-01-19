@@ -4,14 +4,23 @@ import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
 import { useShake, requestPermission as requestShakePermission } from '../hooks/useShake';
 import { useAccelSensor } from '../hooks/useAccelSensor';
-import LobbyView from './LobbyView';
 
 export default function InGameView() {
-  const { gameState, myTeam, score, isTeamLeader } = useMobileStore();
+  const { gameState, myTeam, score, isTeamLeader, players, playerId } = useMobileStore();
   const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
+
+  // 서버에서 받은 센서 확인 상태와 동기화
+  useEffect(() => {
+    if (playerId && players && Array.isArray(players)) {
+      const me = players.find(p => (p.id || p.playerId) === playerId);
+      if (me && me.sensorChecked !== undefined) {
+        setIsSensorVerified(me.sensorChecked);
+      }
+    }
+  }, [players, playerId]);
 
   // 1. 센서 Hooks
   // Shake (Playing용)
@@ -86,6 +95,7 @@ export default function InGameView() {
   // 5. Render Logic
   
   // 권한 요청 화면 (최초 1회, 게임 진입 전)
+  // Note: WAITING 상태는 App.jsx에서 LobbyView를 렌더링하므로 여기서는 처리하지 않음
   if (permission !== 'granted') {
     return (
        <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-900 space-y-6">
@@ -101,11 +111,6 @@ export default function InGameView() {
           </button>
        </div>
     );
-  }
-
-  // WAITING 상태면 LobbyView 렌더링
-  if (gameState === 'WAITING') {
-    return <LobbyView />;
   }
 
   // 공통 배경 (팀 색상 등)

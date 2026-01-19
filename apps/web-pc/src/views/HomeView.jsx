@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { createRoom } from '../api/room';
+import { createRoom, generateDevToken } from '../api/room';
+import { usePcSocket } from '../hooks/usePcSocket';
 
 export default function HomeView() {
   const [teamAName, setTeamAName] = useState('A팀');
@@ -9,7 +10,8 @@ export default function HomeView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { setRoomInfo, setGameState, setHost } = useGameStore();
+  const { setRoomInfo, setGameState, setHost, setHostDevToken } = useGameStore();
+  const { joinRoom } = usePcSocket();
 
   const handleCreateRoom = async (e) => {
     e.preventDefault();
@@ -17,7 +19,11 @@ export default function HomeView() {
     setLoading(true);
 
     try {
-      const roomData = await createRoom(teamAName, teamBName, maxPlayers);
+      // 개발 모드 토큰 생성 (실제 프로덕션에서는 Firebase 토큰 사용)
+      const devToken = generateDevToken('host');
+      setHostDevToken(devToken); // Store에 토큰 저장
+      
+      const roomData = await createRoom(teamAName, teamBName, maxPlayers, devToken);
       
       // Update store with room info
       setRoomInfo({
@@ -28,11 +34,21 @@ export default function HomeView() {
         teamBName: roomData.teamBName,
         maxPlayers: roomData.maxPlayers,
         status: 'WAITING',
+        hostPlayerId: roomData.hostPlayerId, // 호스트 playerId 저장
       });
 
       // Set as host and transition to waiting view
       setHost(true);
       setGameState('WAITING');
+
+      // Socket에 join_room emit (호스트가 방에 입장)
+      // Socket은 App.jsx에서 자동 초기화되며, room_state 이벤트를 통해 상태가 동기화됩니다
+      if (roomData.roomId && roomData.hostPlayerId) {
+        // Socket이 연결될 때까지 대기 후 join_room emit
+        setTimeout(() => {
+          joinRoom(roomData.roomId, roomData.hostPlayerId);
+        }, 500); // Socket 연결 대기
+      }
     } catch (err) {
       setError(err.message || '방 생성에 실패했습니다.');
     } finally {

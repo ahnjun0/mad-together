@@ -6,7 +6,7 @@ import { immer } from 'zustand/middleware/immer';
 export const useGameStore = create(
   immer((set) => ({
     // State
-    gameState: 'HOME', // 'HOME' | 'WAITING' | 'TUTORIAL' | 'CASTING' | 'PLAYING' | 'FINISHED'
+    gameState: 'HOME', // 'HOME' | 'WAITING' | 'CINEMATIC' | 'TUTORIAL' | 'CASTING' | 'PLAYING' | 'FINISHED'
     score: {
       A: 0,
       B: 0,
@@ -22,10 +22,13 @@ export const useGameStore = create(
       teamBName: 'B팀',
       maxPlayers: 10,
       status: null,
+      hostPlayerId: null, // 호스트의 playerId
     },
+    hostDevToken: null, // 호스트 개발 모드 토큰
     players: {
       A: [],
       B: [],
+      unassigned: [], // 팀이 할당되지 않은 플레이어
     },
 
     // Actions
@@ -77,7 +80,7 @@ export const useGameStore = create(
 
     clearPlayers: () =>
       set((draft) => {
-        draft.players = { A: [], B: [] };
+        draft.players = { A: [], B: [], unassigned: [] };
       }),
 
     setScore: (teamScores) =>
@@ -96,18 +99,142 @@ export const useGameStore = create(
         draft.isConnected = connected;
       }),
 
+    // Set players (replace entire array - used in room_state)
+    setPlayers: (playersArray) =>
+      set((draft) => {
+        if (!Array.isArray(playersArray)) return;
+        
+        // Normalize player data: ensure id and nickname exist
+        const normalized = playersArray.map((p) => ({
+          id: p.id || p.playerId,
+          playerId: p.playerId || p.id,
+          nickname: p.nickname || 'Unknown',
+          team: p.team || null,
+          isHost: p.isHost || false,
+          isReady: p.isReady || false,
+          isLeader: p.isLeader || false,
+          sensorChecked: p.sensorChecked || false,
+          score: p.score || 0,
+          ...p, // Keep other properties
+        }));
+        
+        // Reorganize by team
+        draft.players = {
+          A: normalized.filter((p) => p.team === 'A'),
+          B: normalized.filter((p) => p.team === 'B'),
+          unassigned: normalized.filter((p) => !p.team || p.team === null),
+        };
+      }),
+
+    // Add player (append to array - duplicate check)
+    addPlayer: (player) =>
+      set((draft) => {
+        const playerId = player.id || player.playerId;
+        if (!playerId) return;
+        
+        // Normalize player data
+        const normalized = {
+          id: playerId,
+          playerId: playerId,
+          nickname: player.nickname || 'Unknown',
+          team: player.team || null,
+          isHost: player.isHost || false,
+          isReady: player.isReady || false,
+          isLeader: player.isLeader || false,
+          sensorChecked: player.sensorChecked || false,
+          score: player.score || 0,
+          ...player,
+        };
+        
+        // Check for duplicates
+        const allPlayers = [...draft.players.A, ...draft.players.B, ...draft.players.unassigned];
+        if (allPlayers.some((p) => (p.id || p.playerId) === playerId)) {
+          console.warn('[Store] Player already exists:', playerId);
+          return;
+        }
+        
+        // Add to appropriate team
+        if (normalized.team === 'A') {
+          draft.players.A.push(normalized);
+        } else if (normalized.team === 'B') {
+          draft.players.B.push(normalized);
+        } else {
+          draft.players.unassigned.push(normalized);
+        }
+      }),
+
+    // Update player (find by ID and merge)
+    updatePlayer: (playerId, updates) =>
+      set((draft) => {
+        const allPlayers = [...draft.players.A, ...draft.players.B, ...draft.players.unassigned];
+        const playerIndex = allPlayers.findIndex((p) => (p.id || p.playerId) === playerId);
+        
+        if (playerIndex === -1) {
+          console.warn('[Store] Player not found for update:', playerId);
+          return;
+        }
+        
+        const player = allPlayers[playerIndex];
+        const updatedPlayer = { ...player, ...updates };
+        
+        // Remove from old location
+        if (player.team === 'A') {
+          draft.players.A = draft.players.A.filter((p) => (p.id || p.playerId) !== playerId);
+        } else if (player.team === 'B') {
+          draft.players.B = draft.players.B.filter((p) => (p.id || p.playerId) !== playerId);
+        } else {
+          draft.players.unassigned = draft.players.unassigned.filter((p) => (p.id || p.playerId) !== playerId);
+        }
+        
+        // Add to new location based on updated team
+        if (updatedPlayer.team === 'A') {
+          draft.players.A.push(updatedPlayer);
+        } else if (updatedPlayer.team === 'B') {
+          draft.players.B.push(updatedPlayer);
+        } else {
+          draft.players.unassigned.push(updatedPlayer);
+        }
+      }),
+
+    // Remove player (filter out by ID)
+    removePlayer: (playerId) =>
+      set((draft) => {
+        draft.players.A = draft.players.A.filter((p) => (p.id || p.playerId) !== playerId);
+        draft.players.B = draft.players.B.filter((p) => (p.id || p.playerId) !== playerId);
+        draft.players.unassigned = draft.players.unassigned.filter((p) => (p.id || p.playerId) !== playerId);
+      }),
+
+    // Legacy updatePlayers (for backward compatibility)
     updatePlayers: (playersData) =>
       set((draft) => {
         // If playersData is a function (for complex updates), call it
         if (typeof playersData === 'function') {
-          const currentPlayers = { A: [...draft.players.A], B: [...draft.players.B] };
+          const currentPlayers = { 
+            A: [...draft.players.A], 
+            B: [...draft.players.B],
+            unassigned: [...draft.players.unassigned],
+          };
           const updated = playersData(currentPlayers);
           draft.players = updated || currentPlayers;
         } else if (Array.isArray(playersData)) {
-          // If it's an array, reorganize by team
+          // If it's an array, use setPlayers logic
+          const normalized = playersData.map((p) => ({
+            id: p.id || p.playerId,
+            playerId: p.playerId || p.id,
+            nickname: p.nickname || 'Unknown',
+            team: p.team || null,
+            isHost: p.isHost || false,
+            isReady: p.isReady || false,
+            isLeader: p.isLeader || false,
+            sensorChecked: p.sensorChecked || false,
+            score: p.score || 0,
+            ...p,
+          }));
+          
           draft.players = {
-            A: playersData.filter((p) => p.team === 'A'),
-            B: playersData.filter((p) => p.team === 'B'),
+            A: normalized.filter((p) => p.team === 'A'),
+            B: normalized.filter((p) => p.team === 'B'),
+            unassigned: normalized.filter((p) => !p.team || p.team === null),
           };
         }
       }),
@@ -115,6 +242,11 @@ export const useGameStore = create(
     setHost: (isHost) =>
       set((draft) => {
         draft.isHost = isHost;
+      }),
+
+    setHostDevToken: (token) =>
+      set((draft) => {
+        draft.hostDevToken = token;
       }),
   }))
 );
