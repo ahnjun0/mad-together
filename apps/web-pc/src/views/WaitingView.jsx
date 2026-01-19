@@ -10,7 +10,7 @@ import bgShip from '../assets/background-ship.jpg';
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
   const { roomInfo, players } = useGameStore();
-  const { startCinematic, joinRoom, isConnected: socketConnected } = usePcSocket();
+  const { startTutorial, joinRoom, isConnected: socketConnected } = usePcSocket();
 
   // 연결 상태 동기화 및 방 재입장 처리
   useEffect(() => {
@@ -117,8 +117,8 @@ export default function WaitingView() {
           <div className="w-full max-w-xl">
             <GlossyButton
               onClick={() => {
-                console.log('[WaitingView] 🎮 Game Start 버튼 클릭');
-                startCinematic();
+                console.log('[WaitingView] 🎮 Game Start 버튼 클릭 - Starting Tutorial');
+                startTutorial();
               }}
               disabled={isStartDisabled}
               variant="primary"

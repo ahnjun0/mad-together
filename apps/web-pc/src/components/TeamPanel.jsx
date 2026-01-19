@@ -29,6 +29,7 @@ export default function TeamPanel({ teamName, players, color }) {
             nickname={player.nickname}
             isLeader={player.isLeader}
             isReady={player.isReady}
+            sensorChecked={player.sensorChecked}
             teamColor={color}
           />
         ))}
