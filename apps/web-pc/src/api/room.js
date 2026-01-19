@@ -93,7 +93,7 @@ export async function joinRoomAsBot(code, devToken, nickname = null) {
  * @param {string} accessToken - JWT access token
  * @returns {Promise<{roomId: string, code: string, qrCode: string, teamAName: string, teamBName: string}>}
  */
-export async function createRoom(teamAName, teamBName, maxPlayers = 10, accessToken = null) {
+export async function createRoom(roomName, teamAName, teamBName, maxPlayers = 10, accessToken = null) {
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -107,6 +107,7 @@ export async function createRoom(teamAName, teamBName, maxPlayers = 10, accessTo
       method: 'POST',
       headers,
       body: JSON.stringify({
+        roomName,
         teamAName,
         teamBName,
         maxPlayers,
