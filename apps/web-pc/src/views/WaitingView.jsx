@@ -1,10 +1,22 @@
+import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
 
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
-  const { roomInfo, players } = useGameStore();
-  const { startCinematic } = usePcSocket();
+  const { roomInfo, players, isConnected } = useGameStore();
+  const { startCinematic, joinRoom, isConnected: socketConnected } = usePcSocket();
+
+  // 연결 상태 동기화 및 방 재입장 처리
+  useEffect(() => {
+    // 소켓이 연결되었고 방 정보가 있지만 플레이어가 없으면 방에 재입장
+    const allPlayers = [...(players.A || []), ...(players.B || []), ...(players.unassigned || [])];
+
+    if (socketConnected && roomInfo.roomId && roomInfo.hostPlayerId && allPlayers.length === 0) {
+      console.log('[WaitingView] 🔄 Rejoining room after reconnect...');
+      joinRoom(roomInfo.roomId, roomInfo.hostPlayerId);
+    }
+  }, [socketConnected, roomInfo.roomId, roomInfo.hostPlayerId, players, joinRoom]);
 
   // players가 객체 형태로 저장됨: { A: [], B: [], unassigned: [] }
   const teamA_players = Array.isArray(players) 
@@ -21,7 +33,8 @@ export default function WaitingView() {
   const allPlayers = [...teamA_players, ...teamB_players, ...unassignedPlayers];
 
   // Start Game button disabled conditions
-  const isStartDisabled = 
+  const isStartDisabled =
+    !socketConnected || // 소켓이 연결되지 않음
     allPlayers.length === 0 || // No players
     unassignedPlayers.length > 0 || // Someone hasn't picked a team
     allPlayers.some(p => !p.isReady); // Someone is not Ready
@@ -63,6 +76,18 @@ export default function WaitingView() {
 
   return (
     <div className="w-full h-full flex items-center justify-center p-8">
+      {/* 연결 상태 표시 */}
+      <div className="fixed top-4 right-4 z-50">
+        <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
+          socketConnected
+            ? 'bg-green-100 text-green-800'
+            : 'bg-red-100 text-red-800'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+          {socketConnected ? '서버 연결됨' : '서버 연결 중...'}
+        </div>
+      </div>
+
       <div className="w-full max-w-6xl grid grid-cols-3 gap-6">
         {/* QR Code Center */}
         <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-8 flex flex-col">
@@ -119,7 +144,9 @@ export default function WaitingView() {
               }`}
               title={
                 isStartDisabled
-                  ? allPlayers.length === 0
+                  ? !socketConnected
+                    ? '서버에 연결 중입니다...'
+                    : allPlayers.length === 0
                     ? '플레이어가 없습니다'
                     : unassignedPlayers.length > 0
                     ? `${unassignedPlayers.length}명이 팀을 선택하지 않았습니다`
@@ -131,7 +158,9 @@ export default function WaitingView() {
             </button>
             {isStartDisabled && (
               <p className="text-xs text-gray-500 mt-2 text-center">
-                {allPlayers.length === 0
+                {!socketConnected
+                  ? '서버에 연결 중입니다...'
+                  : allPlayers.length === 0
                   ? '플레이어가 없습니다'
                   : unassignedPlayers.length > 0
                   ? `${unassignedPlayers.length}명이 팀을 선택하지 않았습니다`

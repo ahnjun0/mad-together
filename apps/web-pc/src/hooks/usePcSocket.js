@@ -1,9 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useGameStore } from '../store/useGameStore';
 
 const SOCKET_URL = 'https://madcamp.cloud';
 const SOCKET_NAMESPACE = '/game';
+
+// 싱글톤 소켓 인스턴스 (모듈 레벨)
+let socketInstance = null;
+let currentAuthToken = null;
+let isInitializing = false;
+
+// 소켓 연결 대기 Promise
+let connectionPromise = null;
+let connectionResolve = null;
 
 export function usePcSocket() {
   const socketRef = useRef(null);
@@ -19,31 +28,87 @@ export function usePcSocket() {
     setRoomInfo,
     setConnected,
     hostDevToken,
+    roomInfo,
   } = useGameStore();
 
   useEffect(() => {
-    // Initialize socket connection
-    // 개발 모드: hostDevToken 사용, 프로덕션: Firebase 토큰 사용
-    const authToken = hostDevToken || null; // 실제 프로덕션에서는 Firebase 토큰 사용
-    
+    // 토큰이 변경되었거나 소켓이 없으면 새로 연결
+    const authToken = hostDevToken || null;
+
+    // 이미 같은 토큰으로 연결된 소켓이 있으면 재사용
+    if (socketInstance && currentAuthToken === authToken && socketInstance.connected) {
+      console.log('[PC] 🔄 Reusing existing socket connection');
+      socketRef.current = socketInstance;
+      setConnected(true);
+      return;
+    }
+
+    // 이미 초기화 중이면 대기
+    if (isInitializing && currentAuthToken === authToken) {
+      console.log('[PC] ⏳ Socket initialization in progress, waiting...');
+      socketRef.current = socketInstance;
+      return;
+    }
+
+    // 기존 소켓이 있고 토큰이 변경되었으면 연결 해제
+    if (socketInstance && currentAuthToken !== authToken) {
+      console.log('[PC] 🔄 Token changed, reconnecting with new token');
+      socketInstance.disconnect();
+      socketInstance = null;
+    }
+
+    isInitializing = true;
+    currentAuthToken = authToken;
+
+    // 새 연결 Promise 생성
+    connectionPromise = new Promise((resolve) => {
+      connectionResolve = resolve;
+    });
+
     const socketUrl = `${SOCKET_URL}${SOCKET_NAMESPACE}`;
-    console.log('[PC] 🔌 Connecting to:', socketUrl);
-    socketRef.current = io(socketUrl, {
+    console.log('[PC] 🔌 Connecting to:', socketUrl, 'with token:', authToken ? 'present' : 'none');
+
+    socketInstance = io(socketUrl, {
       transports: ['websocket'],
       ...(authToken && { auth: { token: authToken } }),
     });
 
-    const socket = socketRef.current;
+    socketRef.current = socketInstance;
+    const socket = socketInstance;
 
     // Connection events
     socket.on('connect', () => {
       console.log('[Socket] ✅ PC Socket connected:', socket.id);
       setConnected(true);
+      isInitializing = false;
+
+      // 연결 대기 Promise resolve
+      if (connectionResolve) {
+        connectionResolve();
+        connectionResolve = null;
+      }
+
+      // 연결 완료 후 roomInfo가 있으면 자동으로 join_room 실행
+      const currentRoomInfo = useGameStore.getState().roomInfo;
+      if (currentRoomInfo.roomId && currentRoomInfo.hostPlayerId) {
+        console.log('[Socket] 🏠 Auto-joining room after connect:', currentRoomInfo.roomId);
+        socket.emit('join_room', {
+          roomId: currentRoomInfo.roomId,
+          playerId: currentRoomInfo.hostPlayerId
+        });
+      }
     });
 
     socket.on('disconnect', (reason) => {
       console.log('[Socket] ❌ PC Socket disconnected:', reason);
       setConnected(false);
+      isInitializing = false;
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[Socket] ❌ Connection error:', error.message);
+      setConnected(false);
+      isInitializing = false;
     });
 
     // Room state events
@@ -288,81 +353,92 @@ export function usePcSocket() {
       setGameState('FINISHED');
     });
 
-    // Cleanup
+    // Cleanup - 싱글톤이므로 리스너만 제거하고 연결은 유지
+    // 앱이 언마운트될 때만 완전히 연결 해제
     return () => {
-      if (socketRef.current) {
-        const sock = socketRef.current;
-        sock.off('connect');
-        sock.off('disconnect');
-        sock.off('room_state');
-        sock.off('player_joined');
-        sock.off('player_left');
-        sock.off('player_disconnected');
-        sock.off('player_updated');
-        sock.off('all_ready');
-        sock.off('all_sensor_checked');
-        sock.off('tutorial_started');
-        sock.off('leaders_selected');
-        sock.off('casting_phase');
-        sock.off('team_casted');
-        sock.off('countdown');
-        sock.off('score_update');
-        sock.off('game_started');
-        sock.off('cinematic_started');
-        sock.off('game_ended');
-        sock.disconnect();
-      }
+      // 리스너 제거는 하지 않음 (싱글톤 유지)
+      // 필요시 아래 주석 해제하여 리스너만 제거
+      // socket.off('room_state');
+      // etc...
     };
   }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, hostDevToken]);
 
-  // Emit functions
-  const emitFunctions = {
-    joinRoom: (roomId, playerId) => {
-      if (socketRef.current) {
-        console.log('[Socket] 📡 Emitting join_room:', { roomId, playerId });
-        socketRef.current.emit('join_room', { roomId, playerId });
-      } else {
-        console.warn('[Socket] ⚠️ Socket not connected, cannot join room');
-      }
-    },
+  // 소켓 연결 대기 헬퍼
+  const waitForConnection = useCallback(async () => {
+    if (socketInstance && socketInstance.connected) {
+      return true;
+    }
+    if (connectionPromise) {
+      await connectionPromise;
+      return true;
+    }
+    return false;
+  }, []);
 
-    startTutorial: () => {
-      if (socketRef.current) {
-        socketRef.current.emit('start_tutorial');
-      }
-    },
+  // Emit functions - 싱글톤 소켓 사용
+  const joinRoom = useCallback(async (roomId, playerId) => {
+    console.log('[Socket] 📡 joinRoom called:', { roomId, playerId });
 
-    selectLeaders: () => {
-      if (socketRef.current) {
-        socketRef.current.emit('select_leaders');
-      }
-    },
+    // 소켓 연결 대기
+    if (!socketInstance?.connected) {
+      console.log('[Socket] ⏳ Waiting for socket connection...');
+      await waitForConnection();
+    }
 
-    startCasting: () => {
-      if (socketRef.current) {
-        socketRef.current.emit('start_casting');
-      }
-    },
+    if (socketInstance?.connected) {
+      console.log('[Socket] 📡 Emitting join_room:', { roomId, playerId });
+      socketInstance.emit('join_room', { roomId, playerId });
+    } else {
+      console.warn('[Socket] ⚠️ Socket not connected, cannot join room');
+    }
+  }, [waitForConnection]);
 
-    startCountdown: () => {
-      if (socketRef.current) {
-        socketRef.current.emit('start_countdown');
-      }
-    },
+  const startTutorial = useCallback(() => {
+    if (socketInstance?.connected) {
+      socketInstance.emit('start_tutorial');
+    }
+  }, []);
 
-    startCinematic: () => {
-      if (socketRef.current && socketRef.current.connected) {
-        console.log('[Socket] 📡 Emitting start_cinematic');
-        socketRef.current.emit('start_cinematic');
-      } else {
-        console.warn('[Socket] ⚠️ Socket not connected, cannot start cinematic');
-        alert('Socket 연결이 안 되어 있습니다. 잠시 후 다시 시도하세요.');
-      }
-    },
-  };
+  const selectLeaders = useCallback(() => {
+    if (socketInstance?.connected) {
+      socketInstance.emit('select_leaders');
+    }
+  }, []);
+
+  const startCasting = useCallback(() => {
+    if (socketInstance?.connected) {
+      socketInstance.emit('start_casting');
+    }
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    if (socketInstance?.connected) {
+      socketInstance.emit('start_countdown');
+    }
+  }, []);
+
+  const startCinematic = useCallback(() => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] 📡 Emitting start_cinematic');
+      socketInstance.emit('start_cinematic');
+    } else {
+      console.warn('[Socket] ⚠️ Socket not connected, cannot start cinematic');
+      alert('Socket 연결이 안 되어 있습니다. 잠시 후 다시 시도하세요.');
+    }
+  }, []);
+
+  // 소켓 연결 상태 반환
+  const isConnected = socketInstance?.connected || false;
 
   return {
-    socket: socketRef.current,
-    ...emitFunctions,
+    socket: socketInstance,
+    isConnected,
+    joinRoom,
+    startTutorial,
+    selectLeaders,
+    startCasting,
+    startCountdown,
+    startCinematic,
+    waitForConnection,
   };
 }

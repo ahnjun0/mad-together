@@ -11,7 +11,7 @@ export default function HomeView() {
   const [error, setError] = useState('');
 
   const { setRoomInfo, setGameState, setHost, setHostDevToken } = useGameStore();
-  const { joinRoom } = usePcSocket();
+  const { joinRoom, waitForConnection } = usePcSocket();
 
   const handleCreateRoom = async (e) => {
     e.preventDefault();
@@ -22,10 +22,10 @@ export default function HomeView() {
       // 개발 모드 토큰 생성 (실제 프로덕션에서는 Firebase 토큰 사용)
       const devToken = generateDevToken('host');
       setHostDevToken(devToken); // Store에 토큰 저장
-      
+
       const roomData = await createRoom(teamAName, teamBName, maxPlayers, devToken);
-      
-      // Update store with room info
+
+      // Update store with room info (소켓이 연결되면 자동으로 join_room 실행됨)
       setRoomInfo({
         roomId: roomData.roomId,
         code: roomData.code,
@@ -41,13 +41,14 @@ export default function HomeView() {
       setHost(true);
       setGameState('WAITING');
 
-      // Socket에 join_room emit (호스트가 방에 입장)
-      // Socket은 App.jsx에서 자동 초기화되며, room_state 이벤트를 통해 상태가 동기화됩니다
+      // 소켓 연결 대기 후 명시적으로 joinRoom 호출
+      // usePcSocket의 connect 이벤트에서도 자동 호출되지만, 확실히 하기 위해 명시적 호출
+      console.log('[HomeView] 🏠 Room created, waiting for socket connection...');
+      await waitForConnection();
+
       if (roomData.roomId && roomData.hostPlayerId) {
-        // Socket이 연결될 때까지 대기 후 join_room emit
-        setTimeout(() => {
-          joinRoom(roomData.roomId, roomData.hostPlayerId);
-        }, 500); // Socket 연결 대기
+        console.log('[HomeView] 🏠 Socket connected, joining room...');
+        await joinRoom(roomData.roomId, roomData.hostPlayerId);
       }
     } catch (err) {
       setError(err.message || '방 생성에 실패했습니다.');
