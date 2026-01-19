@@ -1,214 +1,148 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import TeamPanel from '../components/TeamPanel';
+import QRCodePanel from '../components/QRCodePanel';
+import GlassPanel from '../components/GlassPanel';
+import GlossyButton from '../components/GlossyButton';
+import bgShip from '../assets/background-ship.jpg';
 
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
-  const { roomInfo, players, isConnected } = useGameStore();
+  const { roomInfo, players } = useGameStore();
   const { startCinematic, joinRoom, isConnected: socketConnected } = usePcSocket();
 
   // 연결 상태 동기화 및 방 재입장 처리
   useEffect(() => {
-    // 소켓이 연결되었고 방 정보가 있지만 플레이어가 없으면 방에 재입장
-    const allPlayers = [...(players.A || []), ...(players.B || []), ...(players.unassigned || [])];
+    const allPlayersRaw = [
+      ...(players.A || []),
+      ...(players.B || []),
+      ...(players.unassigned || []),
+    ];
 
-    if (socketConnected && roomInfo.roomId && allPlayers.length === 0) {
+    if (socketConnected && roomInfo.roomId && allPlayersRaw.length === 0) {
       console.log('[WaitingView] 🔄 Host rejoining room after reconnect...');
       // Host는 Player가 아니므로 playerId 없이 입장 (Observer)
       joinRoom(roomInfo.roomId);
     }
   }, [socketConnected, roomInfo.roomId, players, joinRoom]);
 
-  // players가 객체 형태로 저장됨: { A: [], B: [], unassigned: [] }
-  const teamA_players = Array.isArray(players) 
-    ? players.filter(p => p.team === 'A')
-    : (players.A || []);
-  const teamB_players = Array.isArray(players)
-    ? players.filter(p => p.team === 'B')
-    : (players.B || []);
-  const unassignedPlayers = Array.isArray(players)
-    ? players.filter(p => !p.team || p.team === null)
-    : (players.unassigned || []);
+  // Host(PC 관리자)는 리스트에서 제외
+  const filterNonHost = (list = []) => list.filter((p) => !p.isHost);
 
-  // Get all players for validation
+  const teamA_players = filterNonHost(players.A || []);
+  const teamB_players = filterNonHost(players.B || []);
+  const unassignedPlayers = filterNonHost(players.unassigned || []);
+
   const allPlayers = [...teamA_players, ...teamB_players, ...unassignedPlayers];
 
-  // Start Game button disabled conditions
+  // Start Game 버튼 비활성 조건
   const isStartDisabled =
     !socketConnected || // 소켓이 연결되지 않음
-    allPlayers.length === 0 || // No players
-    unassignedPlayers.length > 0 || // Someone hasn't picked a team
-    allPlayers.some(p => !p.isReady); // Someone is not Ready
-
-  // Render player item with status indicators
-  const renderPlayerItem = (player, showTeam = true) => (
-    <div
-      key={player.id || player.playerId}
-      className={`p-3 rounded-lg border transition-all ${
-        player.team === 'A'
-          ? 'bg-orange-100 border-orange-300'
-          : player.team === 'B'
-          ? 'bg-cyan-100 border-cyan-300'
-          : 'bg-gray-100 border-gray-300'
-      } ${player.sensorChecked ? 'ring-2 ring-green-500' : ''}`}
-    >
-      <div className="flex items-center gap-2">
-        {player.isLeader && (
-          <span className="text-xl" title="팀장">
-            👑
-          </span>
-        )}
-        <p className="font-semibold text-gray-800">{player.nickname || 'Unknown'}</p>
-        {player.isReady && (
-          <span className="ml-auto text-green-600 text-xs font-bold">✓ Ready</span>
-        )}
-        {!player.isReady && (
-          <span className="ml-auto text-gray-400 text-xs">대기 중...</span>
-        )}
-      </div>
-      {showTeam && player.team && (
-        <p className="text-xs text-gray-600 mt-1">Team {player.team}</p>
-      )}
-      {player.sensorChecked && (
-        <p className="text-xs text-green-600 mt-1">✓ Sensor Checked</p>
-      )}
-    </div>
-  );
+    allPlayers.length === 0 || // 플레이어 없음
+    unassignedPlayers.length > 0 || // 팀 미선택 인원 존재
+    allPlayers.some((p) => !p.isReady); // 준비 안 된 인원 존재
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-8">
-      {/* 연결 상태 표시 */}
+    <div
+      className="w-full h-full flex items-center justify-center p-4 md:p-8 bg-cover bg-center"
+      style={{ backgroundImage: `url(${bgShip})` }}
+    >
+      {/* 상단 연결 상태 배지 */}
       <div className="fixed top-4 right-4 z-50">
-        <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
-          socketConnected
-            ? 'bg-green-100 text-green-800'
-            : 'bg-red-100 text-red-800'
-        }`}>
-          <span className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+        <div
+          className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
+            socketConnected
+              ? 'bg-green-100/90 text-green-800'
+              : 'bg-red-100/90 text-red-800'
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              socketConnected ? 'bg-green-500' : 'bg-red-500'
+            } animate-pulse`}
+          />
           {socketConnected ? '서버 연결됨' : '서버 연결 중...'}
         </div>
       </div>
 
-      <div className="w-full max-w-6xl grid grid-cols-3 gap-6">
-        {/* QR Code Center */}
-        <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-8 flex flex-col">
-          <div className="flex flex-col items-center justify-center mb-4">
-            <h2 className="text-xl font-bold text-outline text-white mb-4">QR 코드</h2>
-            {roomInfo.qrCode ? (
-              <img
-                src={roomInfo.qrCode}
-                alt="QR Code"
-                className="w-64 h-64 border-4 border-gray-400 rounded-lg"
-              />
-            ) : (
-              <div className="w-64 h-64 bg-gray-200 rounded-lg flex items-center justify-center border-4 border-gray-400">
-                <span className="text-gray-500 text-sm">QR Code Loading...</span>
-              </div>
-            )}
-            <p className="mt-4 text-sm text-gray-600 font-mono font-bold">
-              Code: {roomInfo.code || '---'}
-            </p>
-            <div className="mt-4 text-xs text-gray-500">
-              <p>Team A: {roomInfo.teamAName}</p>
-              <p>Team B: {roomInfo.teamBName}</p>
-            </div>
+      <div className="w-full max-w-6xl flex flex-col gap-8">
+        {/* 상단: 팀 패널 + 중앙 타이틀/QR */}
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_auto_1.2fr] gap-6 items-start">
+          {/* Team A */}
+          <TeamPanel
+            teamName={roomInfo.teamAName || 'TEAM A'}
+            players={teamA_players}
+            color="team-a"
+          />
+
+          {/* 중앙 KAHOOK! 타이틀 + QR 코드 */}
+          <div className="flex flex-col items-center gap-6">
+            <h1
+              className="
+                text-5xl md:text-6xl font-fredoka text-[#1e3a8a]
+                text-outline tracking-[0.18em] drop-shadow-xl
+              "
+            >
+              KAHOOK!
+            </h1>
+
+            <QRCodePanel
+              qrCodeUrl={roomInfo.qrCode}
+              roomCode={roomInfo.code || '---'}
+            />
           </div>
 
-          {/* Unassigned Players List */}
-          <div className="mt-4 flex-1 overflow-y-auto">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">
-              Current Users: {allPlayers.length} {unassignedPlayers.length > 0 && `(${unassignedPlayers.length} Selecting Team...)`}
-            </h3>
-            {unassignedPlayers.length > 0 ? (
-              <div className="space-y-2">
-                {unassignedPlayers.map((player) => renderPlayerItem(player, false))}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-xs text-center py-2">
-                {allPlayers.length === 0 ? '플레이어 없음' : '모든 플레이어가 팀을 선택했습니다'}
+          {/* Team B */}
+          <TeamPanel
+            teamName={roomInfo.teamBName || 'TEAM B'}
+            players={teamB_players}
+            color="team-b"
+          />
+        </div>
+
+        {/* 하단: WAITING 패널 + Game Start 버튼 */}
+        <div className="flex flex-col items-center gap-4 mt-2">
+          <div className="w-full max-w-xl">
+            <GlassPanel className="py-4 text-center bg-white/35">
+              <p className="text-2xl md:text-3xl font-fredoka text-white tracking-[0.2em]">
+                WAITING...
               </p>
-            )}
+              <p className="mt-2 text-xs md:text-sm text-white/80">
+                모든 플레이어가 팀을 선택하고 준비를 완료하면 게임을 시작할 수 있어요.
+              </p>
+            </GlassPanel>
           </div>
 
-          {/* Start Game Button */}
-          <div className="mt-4 w-full">
-            <button
+          <div className="w-full max-w-xl">
+            <GlossyButton
               onClick={() => {
-                console.log('[WaitingView] 🎮 Start Game 버튼 클릭');
+                console.log('[WaitingView] 🎮 Game Start 버튼 클릭');
                 startCinematic();
               }}
               disabled={isStartDisabled}
-              className={`w-full px-4 py-3 rounded-lg text-white font-semibold text-sm transition-all ${
-                isStartDisabled
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-500 hover:bg-green-600 active:scale-95'
-              }`}
-              title={
-                isStartDisabled
-                  ? !socketConnected
-                    ? '서버에 연결 중입니다...'
-                    : allPlayers.length === 0
-                    ? '플레이어가 없습니다'
-                    : unassignedPlayers.length > 0
-                    ? `${unassignedPlayers.length}명이 팀을 선택하지 않았습니다`
-                    : '모든 플레이어가 준비되지 않았습니다'
-                  : '게임 시작'
-              }
+              variant="primary"
             >
-              🎮 Start Game
-            </button>
-            {isStartDisabled && (
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                {!socketConnected
-                  ? '서버에 연결 중입니다...'
-                  : allPlayers.length === 0
-                  ? '플레이어가 없습니다'
-                  : unassignedPlayers.length > 0
-                  ? `${unassignedPlayers.length}명이 팀을 선택하지 않았습니다`
-                  : '모든 플레이어가 준비되지 않았습니다'}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Team A List */}
-        <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center">
-              <span className="text-white font-bold">A</span>
-            </div>
-            <h2 className="text-xl font-bold text-outline text-white">
-              {roomInfo.teamAName || 'Team A'}
-            </h2>
-          </div>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {teamA_players.length > 0 ? (
-              teamA_players.map(renderPlayerItem)
-            ) : (
-              <p className="text-gray-400 text-sm text-center py-4">플레이어 없음</p>
-            )}
-          </div>
-        </div>
-
-        {/* Team B List */}
-        <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center">
-              <span className="text-white font-bold">B</span>
-            </div>
-            <h2 className="text-xl font-bold text-outline text-white">
-              {roomInfo.teamBName || 'Team B'}
-            </h2>
-          </div>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {teamB_players.length > 0 ? (
-              teamB_players.map(renderPlayerItem)
-            ) : (
-              <p className="text-gray-400 text-sm text-center py-4">플레이어 없음</p>
-            )}
+              GAME START
+            </GlossyButton>
           </div>
         </div>
       </div>
+
+      {/* 하단 우측: Help 버튼 */}
+      <button
+        type="button"
+        className="
+          fixed bottom-4 right-4 text-white/80 text-2xl font-fredoka
+          hover:text-white drop-shadow-lg
+        "
+        onClick={() => {
+          // 간단한 도움말 – 추후 별도 모달로 확장 가능
+          alert('모든 플레이어가 팀을 선택하고 READY 상태가 되어야 게임을 시작할 수 있습니다.');
+        }}
+      >
+        ?
+      </button>
     </div>
   );
 }

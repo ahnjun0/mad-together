@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { createRoom } from '../api/room';
 import { usePcSocket } from '../hooks/usePcSocket';
+import GlassPanel from '../components/GlassPanel';
+import GlossyButton from '../components/GlossyButton';
+import bgShip from '../assets/background-ship.jpg';
 
 export default function HomeView() {
-  const [teamAName, setTeamAName] = useState('A팀');
-  const [teamBName, setTeamBName] = useState('B팀');
+  const [roomName, setRoomName] = useState('');
+  const [teamAName, setTeamAName] = useState('Team A');
+  const [teamBName, setTeamBName] = useState('Team B');
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,30 +23,31 @@ export default function HomeView() {
     setLoading(true);
 
     try {
-      // 이미 로그인된 상태이므로 accessToken 사용
-      const roomData = await createRoom(teamAName, teamBName, maxPlayers, accessToken);
+      // Host는 이미 인증된 상태이므로 accessToken 사용
+      // createRoom API는 roomName, teamAName, teamBName, maxPlayers, accessToken 순으로 인자를 받는다고 가정
+      const roomData = await createRoom(roomName, teamAName, teamBName, maxPlayers, accessToken);
 
-      // Update store with room info
+      // Store에 방 정보 저장
       setRoomInfo({
         roomId: roomData.roomId,
         code: roomData.code,
         qrCode: roomData.qrCode,
+        roomName: roomData.roomName || roomName,
         teamAName: roomData.teamAName,
         teamBName: roomData.teamBName,
         maxPlayers: roomData.maxPlayers,
         status: 'WAITING',
       });
 
-      // Transition to waiting view
+      // 대기 화면으로 전환
       setGameState('WAITING');
 
-      // 소켓 연결 대기 후 Host로서 방에 입장
+      // 소켓 연결 대기 후 Host로서 방에 입장 (Observer)
       console.log('[HomeView] Room created, waiting for socket connection...');
       await waitForConnection();
 
       if (roomData.roomId) {
-        console.log('[HomeView] Socket connected, joining room as host...');
-        // Host는 playerId 없이 입장 (Observer)
+        console.log('[HomeView] Socket connected, joining room as host (observer)...');
         await joinRoom(roomData.roomId);
       }
     } catch (err) {
@@ -53,85 +58,148 @@ export default function HomeView() {
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-8 bg-cyan-200">
-      {/* 사용자 정보 및 로그아웃 */}
-      <div className="fixed top-4 right-4 flex items-center gap-3 bg-white/90 rounded-full px-4 py-2 shadow-md">
-        {user.profileImage && (
+    <div
+      className="w-full h-full flex items-center justify-center p-4 md:p-8 bg-cover bg-center"
+      style={{ backgroundImage: `url(${bgShip})` }}
+    >
+      {/* 호스트 정보 및 로그아웃 버튼 */}
+      <div className="fixed top-4 right-4 flex items-center gap-3 bg-white/70 backdrop-blur-md rounded-full px-4 py-2 shadow-md">
+        {user?.profileImage && (
           <img src={user.profileImage} alt="Profile" className="w-8 h-8 rounded-full" />
         )}
-        <span className="text-gray-700 font-medium">{user.nickname}</span>
+        <span className="text-gray-700 font-semibold">{user?.nickname}</span>
         <button
           onClick={logout}
-          className="text-red-500 hover:text-red-700 text-sm font-medium"
+          className="text-red-500 hover:text-red-700 text-sm font-semibold"
         >
           로그아웃
         </button>
       </div>
 
-      <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-outline text-white text-center mb-8">
-          새 게임 생성
-        </h1>
+      <div className="w-full max-w-xl">
+        <GlassPanel className="pt-10 pb-10 px-6 md:px-10 flex flex-col gap-8 items-stretch">
+          {/* 타이틀 */}
+          <h1 className="text-4xl md:text-5xl font-fredoka text-center text-[#1e3a8a] text-outline tracking-wide mb-2">
+            Game Settings
+          </h1>
 
-        <form onSubmit={handleCreateRoom} className="space-y-6">
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              Team A 이름
-            </label>
-            <input
-              type="text"
-              value={teamAName}
-              onChange={(e) => setTeamAName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none text-gray-800"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              Team B 이름
-            </label>
-            <input
-              type="text"
-              value={teamBName}
-              onChange={(e) => setTeamBName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none text-gray-800"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2">
-              최대 인원수 (팀당)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="20"
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 10)}
-              className="w-full px-4 py-3 rounded-lg border-2 border-blue-300 focus:border-blue-500 focus:outline-none text-gray-800"
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-700 text-sm">
-              {error}
+          <form onSubmit={handleCreateRoom} className="space-y-5 md:space-y-6">
+            {/* Room Name */}
+            <div className="space-y-2">
+              <label className="block text-sm md:text-base text-[#1f2933] font-semibold">
+                Room Name
+              </label>
+              <input
+                type="text"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="Enter room name"
+                className="
+                  w-full px-4 py-3 md:py-4 rounded-[16px]
+                  border-[3px] border-blue-500 bg-white/90
+                  text-gray-800 text-base md:text-lg
+                  focus:outline-none focus:ring-4 focus:ring-blue-300/60
+                  placeholder:text-gray-400
+                  shadow-sm
+                "
+                required
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-4 rounded-lg font-bold text-white transition-all ${
-              loading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600 hover:scale-105 shadow-lg shadow-green-500/50'
-            }`}
-          >
-            {loading ? '생성 중...' : '게임 방 만들기'}
-          </button>
-        </form>
+            {/* Team A */}
+            <div className="space-y-2">
+              <label className="block text-sm md:text-base text-[#1f2933] font-semibold">
+                Team A Name
+              </label>
+              <input
+                type="text"
+                value={teamAName}
+                onChange={(e) => setTeamAName(e.target.value)}
+                className="
+                  w-full px-4 py-3 md:py-4 rounded-[16px]
+                  border-[3px] border-team-a bg-white/90
+                  text-gray-800 text-base md:text-lg
+                  focus:outline-none focus:ring-4 focus:ring-orange-300/60
+                  placeholder:text-gray-400
+                  shadow-sm
+                "
+                required
+              />
+            </div>
+
+            {/* Team B */}
+            <div className="space-y-2">
+              <label className="block text-sm md:text-base text-[#1f2933] font-semibold">
+                Team B Name
+              </label>
+              <input
+                type="text"
+                value={teamBName}
+                onChange={(e) => setTeamBName(e.target.value)}
+                className="
+                  w-full px-4 py-3 md:py-4 rounded-[16px]
+                  border-[3px] border-team-b bg-white/90
+                  text-gray-800 text-base md:text-lg
+                  focus:outline-none focus:ring-4 focus:ring-cyan-300/60
+                  placeholder:text-gray-400
+                  shadow-sm
+                "
+                required
+              />
+            </div>
+
+            {/* Max Players (Per Team) */}
+            <div className="space-y-2">
+              <label className="block text-sm md:text-base text-[#1f2933] font-semibold">
+                Max Players (Per Team)
+              </label>
+              <div
+                className="
+                  relative
+                  w-full rounded-[16px] border-[3px] border-blue-500
+                  bg-white/90 shadow-sm
+                "
+              >
+                <select
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(Number(e.target.value))}
+                  className="
+                    w-full appearance-none bg-transparent
+                    px-4 py-3 md:py-4 pr-10
+                    text-gray-800 text-base md:text-lg
+                    focus:outline-none
+                  "
+                >
+                  {[4, 6, 8, 10, 12].map((value) => (
+                    <option key={value} value={value}>
+                      {value} Players
+                    </option>
+                  ))}
+                </select>
+                {/* 드롭다운 아이콘 */}
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <span className="text-blue-600 text-xl">▾</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600">
+                각 팀별 최대 인원 수입니다.
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Create Room Button */}
+            <div className="pt-4">
+              <GlossyButton type="submit" disabled={loading} variant="primary">
+                {loading ? 'Creating...' : 'CREATE ROOM'}
+              </GlossyButton>
+            </div>
+          </form>
+        </GlassPanel>
       </div>
     </div>
   );
