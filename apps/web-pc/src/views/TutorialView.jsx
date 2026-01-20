@@ -10,7 +10,7 @@ import bgOnship from '../assets/background_onship.png';
 // PC (Host) only view - Sensor Check Phase
 export default function TutorialView() {
   const { players, roomInfo } = useGameStore();
-  const { socket, startCinematic, isConnected: socketConnected } = usePcSocket();
+  const { socket, startCinematic, terminateGame, isConnected: socketConnected } = usePcSocket();
 
   // Host(PC 관리자)는 리스트에서 제외
   const filterNonHost = (list = []) => list.filter((p) => !p.isHost);
@@ -196,6 +196,23 @@ export default function TutorialView() {
               </GlassPanel>
             )}
           </div>
+
+          {/* 하단 좌측: 게임 종료 버튼 */}
+          <button
+            type="button"
+            className="
+              fixed bottom-4 left-4 px-4 py-2 rounded-lg
+              bg-red-500/80 hover:bg-red-600 text-white font-semibold
+              drop-shadow-lg z-50 transition-colors
+            "
+            onClick={() => {
+              if (window.confirm('정말로 게임을 종료하시겠습니까?\n모든 플레이어가 퇴장됩니다.')) {
+                terminateGame();
+              }
+            }}
+          >
+            게임 종료
+          </button>
         </div>
       </div>
     </div>

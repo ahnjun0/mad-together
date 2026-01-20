@@ -7,13 +7,14 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
+import { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { RoomsService } from '../rooms/rooms.service';
 import { RedisService } from '../redis/redis.service';
 import { AuthService } from '../auth/auth.service';
-import { JwtService } from '@nestjs/jwt'; // Import JwtService
-import { ConfigService } from '@nestjs/config'; // Import ConfigService
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Team, RoomStatus } from '@prisma/client';
 
 interface AuthenticatedSocket extends Socket {
@@ -31,7 +32,7 @@ interface AuthenticatedSocket extends Socket {
   },
   namespace: '/game',
 })
-export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy {
   @WebSocketServer()
   server: Server;
 
@@ -41,14 +42,132 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // roomId -> casting window open 여부
   private castingWindowOpen: Map<string, boolean> = new Map();
 
+  // Host heartbeat tracking: roomId -> last heartbeat timestamp
+  private hostHeartbeat: Map<string, number> = new Map();
+  private readonly HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 1분
+  private heartbeatCleanupInterval: NodeJS.Timeout | null = null;
+
+  // Helper method to broadcast current room state to all clients in the room
+  private async broadcastRoomState(roomId: string) {
+    const room = await this.roomsService.getRoomById(roomId);
+    const playerIds = room.players.map(p => p.id);
+
+    const [readyStates, playerScores, teamScores] = await Promise.all([
+      Promise.all(
+        playerIds.map(async (id) => ({
+          playerId: id,
+          isReady: await this.redis.getPlayerReady(roomId, id),
+          sensorChecked: await this.redis.getSensorChecked(roomId, id),
+        })),
+      ),
+      this.redis.getAllPlayerScores(roomId, playerIds),
+      this.redis.getTeamScores(roomId),
+    ]);
+
+    const roomStateData = {
+      room: {
+        id: room.id,
+        code: room.code,
+        status: room.status,
+        teamAName: room.teamAName,
+        teamBName: room.teamBName,
+      },
+      teamScores: {
+        A: teamScores.A || 0,
+        B: teamScores.B || 0,
+      },
+      players: room.players.map(p => ({
+        id: p.id,
+        nickname: (p as any).nickname,
+        profileImage: (p as any).profileImage,
+        team: p.team,
+        isLeader: (p as any).isLeader,
+        score: playerScores.get(p.id) || 0,
+        ...readyStates.find(rs => rs.playerId === p.id),
+      })),
+    };
+
+    this.server.to(roomId).emit('room_state', roomStateData);
+  }
+
   constructor(
     private gamesService: GamesService,
     private roomsService: RoomsService,
     private redis: RedisService,
     private authService: AuthService,
-    private jwtService: JwtService, // Inject JwtService
-    private configService: ConfigService, // Inject ConfigService
+    private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
+
+  onModuleInit() {
+    // 30초마다 비활성 Host 게임 체크 및 정리
+    this.heartbeatCleanupInterval = setInterval(() => {
+      this.cleanupInactiveGames();
+    }, 30 * 1000);
+    console.log('[GamesGateway] 🔄 Heartbeat cleanup interval started');
+  }
+
+  onModuleDestroy() {
+    if (this.heartbeatCleanupInterval) {
+      clearInterval(this.heartbeatCleanupInterval);
+      this.heartbeatCleanupInterval = null;
+      console.log('[GamesGateway] 🛑 Heartbeat cleanup interval stopped');
+    }
+  }
+
+  // 비활성 게임 정리 (Host heartbeat 타임아웃)
+  private async cleanupInactiveGames() {
+    const now = Date.now();
+    const inactiveRooms: string[] = [];
+
+    this.hostHeartbeat.forEach((lastHeartbeat, roomId) => {
+      if (now - lastHeartbeat > this.HEARTBEAT_TIMEOUT_MS) {
+        inactiveRooms.push(roomId);
+      }
+    });
+
+    for (const roomId of inactiveRooms) {
+      try {
+        console.log(`[GamesGateway] ⏰ Host timeout for room ${roomId}, terminating game...`);
+        await this.terminateGame(roomId, 'host_timeout');
+        this.hostHeartbeat.delete(roomId);
+      } catch (error) {
+        console.error(`[GamesGateway] ❌ Failed to cleanup room ${roomId}:`, error);
+      }
+    }
+  }
+
+  // 게임 강제 종료 헬퍼
+  private async terminateGame(roomId: string, reason: string) {
+    try {
+      const room = await this.roomsService.getRoomById(roomId);
+
+      // 이미 FINISHED 상태면 스킵
+      if (room.status === RoomStatus.FINISHED) {
+        return;
+      }
+
+      // 상태를 FINISHED로 변경
+      await this.roomsService.updateRoomStatus(roomId, RoomStatus.FINISHED);
+
+      // 모든 클라이언트에 게임 종료 알림
+      this.server.to(roomId).emit('game_terminated', {
+        reason,
+        message: reason === 'host_timeout'
+          ? '호스트 연결이 끊어져 게임이 종료되었습니다.'
+          : '호스트가 게임을 종료했습니다.',
+      });
+
+      // 관련 상태 정리
+      this.gameStartTime.delete(roomId);
+      this.gamePlayerIds.delete(roomId);
+      this.castingWindowOpen.delete(roomId);
+
+      console.log(`[GamesGateway] 🏁 Game terminated: ${roomId}, reason: ${reason}`);
+    } catch (error) {
+      console.error(`[GamesGateway] ❌ terminateGame error:`, error);
+    }
+  }
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
@@ -160,6 +279,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.join(hostRoom);
         console.log(`[Gateway] Host (observer) joined room: ${roomId}`);
       }
+      // Host heartbeat 초기화
+      this.hostHeartbeat.set(roomId, Date.now());
     } else {
       // Player 입장
       const player = room.players.find(p => p.id === playerId);
@@ -237,6 +358,44 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (client.roomId && client.playerId) {
       client.leave(client.roomId);
       client.to(client.roomId).emit('player_left', { playerId: client.playerId });
+    }
+  }
+
+  // Host heartbeat - 연결 유지 확인
+  @SubscribeMessage('heartbeat')
+  async handleHeartbeat(@ConnectedSocket() client: AuthenticatedSocket) {
+    const { roomId, isHost } = client;
+    if (!roomId || !isHost) return;
+
+    this.hostHeartbeat.set(roomId, Date.now());
+    client.emit('heartbeat_ack');
+  }
+
+  // Host가 게임 종료 (PLAYING 상태가 아닐 때만)
+  @SubscribeMessage('terminate_game')
+  async handleTerminateGame(@ConnectedSocket() client: AuthenticatedSocket) {
+    const { roomId, isHost } = client;
+    if (!roomId || !isHost) {
+      client.emit('terminate_error', { message: '권한이 없습니다.' });
+      return;
+    }
+
+    try {
+      const room = await this.roomsService.getRoomById(roomId);
+
+      // PLAYING 상태에서는 종료 불가
+      if (room.status === RoomStatus.PLAYING) {
+        client.emit('terminate_error', {
+          message: '게임 진행 중에는 종료할 수 없습니다. 게임이 끝날 때까지 기다려주세요.',
+        });
+        return;
+      }
+
+      await this.terminateGame(roomId, 'host_terminated');
+      this.hostHeartbeat.delete(roomId);
+    } catch (error) {
+      console.error('[GamesGateway] ❌ terminate_game error:', error);
+      client.emit('terminate_error', { message: '게임 종료 중 오류가 발생했습니다.' });
     }
   }
 
@@ -391,6 +550,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!roomId) return;
 
     await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).CINEMATIC);
+    await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('cinematic_started');
   }
 
@@ -402,6 +562,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!roomId) return;
 
     await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).TUTORIAL);
+    await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('tutorial_started');
   }
 
@@ -421,6 +582,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!roomId) return;
 
     await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).CASTING);
+    await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('casting_phase');
   }
 
@@ -540,6 +702,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.gamesService.startGame(roomId);
     this.gameStartTime.set(roomId, new Date());
 
+    await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('game_started');
   }
 

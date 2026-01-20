@@ -13,7 +13,7 @@ import cinematicVideo from '../assets/cinematic.mp4';
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
   const { roomInfo, players } = useGameStore();
-  const { startTutorial, joinRoom, isConnected: socketConnected } = usePcSocket();
+  const { startTutorial, joinRoom, terminateGame, isConnected: socketConnected } = usePcSocket();
   
   // ⚡️ [Preloading Logic]
   // WaitingView에서 이후 단계에 필요한 모든 주요 이미지/영상 자원을 미리 로딩
@@ -190,6 +190,23 @@ export default function WaitingView() {
               GAME START
             </GlossyButton>
           </div>
+
+          {/* 하단 좌측: 게임 종료 버튼 */}
+          <button
+            type="button"
+            className="
+              absolute bottom-4 left-4 px-4 py-2 rounded-lg
+              bg-red-500/80 hover:bg-red-600 text-white font-semibold
+              drop-shadow-lg z-50 transition-colors
+            "
+            onClick={() => {
+              if (window.confirm('정말로 게임을 종료하시겠습니까?\n모든 플레이어가 퇴장됩니다.')) {
+                terminateGame();
+              }
+            }}
+          >
+            게임 종료
+          </button>
 
           {/* 하단 우측: Help 버튼 */}
           <button
