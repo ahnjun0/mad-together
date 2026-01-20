@@ -58,7 +58,7 @@ export default function PlayerAvatar({
 
       {/* 닉네임 배지 */}
       <div className="px-3 py-1 bg-white/80 backdrop-blur-sm rounded-full shadow-sm">
-        <span className="text-sm font-fredoka font-medium text-gray-800">
+        <span className="text-sm font-game font-medium text-gray-800">
           {nickname}
         </span>
       </div>

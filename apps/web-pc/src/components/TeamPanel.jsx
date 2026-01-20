@@ -11,10 +11,10 @@ export default function TeamPanel({ teamName, players, color }) {
   const isEmpty = players.length === 0;
 
   return (
-    <GlassPanel border={color} className="h-full flex flex-col min-h-[400px]">
+    <GlassPanel border={color} className="h-full flex flex-col min-h-[600px] max-h-[80vh]">
       {/* 팀 헤더 (아웃라인 텍스트) */}
       <h2 className={`
-        text-4xl md:text-5xl font-fredoka text-center mb-6 tracking-wide
+        text-4xl md:text-5xl font-game text-center mb-6 tracking-wide
         text-outline ${titleColor}
         drop-shadow-lg
       `}>
@@ -41,7 +41,7 @@ export default function TeamPanel({ teamName, players, color }) {
             border-2 border-dashed border-white/60 rounded-[20px] 
             bg-white/10 mt-2
           ">
-            <p className="text-white/80 font-fredoka text-lg">
+            <p className="text-white/80 font-game text-lg">
               Waiting for players...
             </p>
           </div>

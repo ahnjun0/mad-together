@@ -9,7 +9,6 @@ import CastingView from './views/CastingView';
 import PlayingView from './views/PlayingView';
 import FinishedView from './views/FinishedView';
 import DevTools from './components/DevTools';
-import bgOnship from './assets/background_onship.png';
 import './App.css';
 
 function App() {
@@ -49,16 +48,8 @@ function App() {
   };
 
   return (
-    <div 
-      className="w-screen h-screen overflow-hidden bg-[#AEE2FF] bg-cover bg-[center_bottom]"
-      style={{ backgroundImage: gameState === 'TUTORIAL' ? `url(${bgOnship})` : undefined }}
-    >
-      {/* Safe Zone: UI 컨테이너는 중앙에 배치, 최대 너비 제한 */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-full max-w-[1600px] h-full relative">
-          {renderView()}
-        </div>
-      </div>
+    <div className="w-screen h-screen overflow-hidden">
+      {renderView()}
       {isAuthenticated && <DevTools />}
     </div>
   );

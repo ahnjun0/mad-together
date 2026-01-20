@@ -58,25 +58,37 @@ export default function HomeView() {
   };
 
   return (
-    <div
-      className="w-full h-full flex items-center justify-center p-4 md:p-8 bg-cover bg-center"
-      style={{ backgroundImage: `url(${bgShip})` }}
-    >
-      {/* 호스트 정보 및 로그아웃 버튼 */}
-      <div className="fixed top-4 right-4 flex items-center gap-3 bg-white/70 backdrop-blur-md rounded-full px-4 py-2 shadow-md">
-        {user?.profileImage && (
-          <img src={user.profileImage} alt="Profile" className="w-8 h-8 rounded-full" />
-        )}
-        <span className="text-gray-700 font-semibold">{user?.nickname}</span>
-        <button
-          onClick={logout}
-          className="text-red-500 hover:text-red-700 text-sm font-semibold"
-        >
-          로그아웃
-        </button>
-      </div>
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
+      <div 
+        className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom]"
+        style={{ 
+          backgroundImage: `url(${bgShip})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat'
+        }}
+      />
 
-      <div className="w-full max-w-xl">
+      {/* Content Layer (Safe Zone): UI 컨테이너는 중앙에 배치 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
+        <div className="w-full max-w-[1600px] h-full relative">
+          {/* 호스트 정보 및 로그아웃 버튼 */}
+          <div className="fixed top-4 right-4 flex items-center gap-3 bg-white/70 backdrop-blur-md rounded-full px-4 py-2 shadow-md z-50">
+            {user?.profileImage && (
+              <img src={user.profileImage} alt="Profile" className="w-8 h-8 rounded-full" />
+            )}
+            <span className="text-gray-700 font-semibold">{user?.nickname}</span>
+            <button
+              onClick={logout}
+              className="text-red-500 hover:text-red-700 text-sm font-semibold"
+            >
+              로그아웃
+            </button>
+          </div>
+
+          {/* GlassPanel: 화면 중앙(가로, 세로)에 고정 */}
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-full max-w-xl px-4">
         <GlassPanel className="pt-10 pb-10 px-6 md:px-10 flex flex-col gap-8 items-stretch">
           {/* 타이틀 */}
           <h1 className="text-4xl md:text-5xl font-fredoka text-center text-[#1e3a8a] text-outline tracking-wide mb-2">
@@ -181,7 +193,7 @@ export default function HomeView() {
                   <span className="text-blue-600 text-xl">▾</span>
                 </div>
               </div>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-gray-600 font-game">
                 각 팀별 최대 인원 수입니다.
               </p>
             </div>
@@ -200,6 +212,8 @@ export default function HomeView() {
             </div>
           </form>
         </GlassPanel>
+          </div>
+        </div>
       </div>
     </div>
   );

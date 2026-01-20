@@ -44,12 +44,23 @@ export default function WaitingView() {
     allPlayers.some((p) => !p.isReady); // 준비 안 된 인원 존재
 
   return (
-    <div
-      className="w-full h-full flex items-center justify-center p-4 md:p-8 bg-cover bg-center"
-      style={{ backgroundImage: `url(${bgShip})` }}
-    >
-      {/* 상단 연결 상태 배지 */}
-      <div className="fixed top-4 right-4 z-50">
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
+      <div 
+        className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom]"
+        style={{ 
+          backgroundImage: `url(${bgShip})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat'
+        }}
+      />
+
+      {/* Content Layer (Safe Zone): UI 컨테이너는 중앙에 배치 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
+        <div className="w-full max-w-[1600px] h-full relative">
+          {/* 상단 연결 상태 배지 */}
+          <div className="absolute top-4 right-4 z-50">
         <div
           className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
             socketConnected
@@ -66,55 +77,59 @@ export default function WaitingView() {
         </div>
       </div>
 
-      <div className="w-full max-w-6xl flex flex-col gap-8">
-        {/* 상단: 팀 패널 + 중앙 타이틀/QR */}
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_auto_1.2fr] gap-6 items-start">
-          {/* Team A */}
-          <TeamPanel
-            teamName={roomInfo.teamAName || 'TEAM A'}
-            players={teamA_players}
-            color="team-a"
-          />
+          {/* Team A 패널: 좌우 화면 끝으로 조금씩 이동하여 사이즈 키우기 */}
+          <div className="fixed left-[20%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-[400px]">
+            <TeamPanel
+              teamName={roomInfo.teamAName || 'TEAM A'}
+              players={teamA_players}
+              color="team-a"
+            />
+          </div>
 
-          {/* 중앙 KAHOOK! 타이틀 + QR 코드 */}
-          <div className="flex flex-col items-center gap-6">
+          {/* Team B 패널: 좌우 화면 끝으로 조금씩 이동하여 사이즈 키우기 */}
+          <div className="fixed left-[80%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-[400px]">
+            <TeamPanel
+              teamName={roomInfo.teamBName || 'TEAM B'}
+              players={teamB_players}
+              color="team-b"
+            />
+          </div>
+
+          {/* 중앙 요소들: 화면 세로 중앙선에 centered */}
+          {/* KAHOOK! 타이틀 */}
+          <div className="fixed left-1/2 top-20 -translate-x-1/2 z-30">
             <h1
               className="
                 text-5xl md:text-6xl font-fredoka text-[#1e3a8a]
-                text-outline tracking-[0.18em] drop-shadow-xl
+                text-outline tracking-[0.18em] drop-shadow-xl whitespace-nowrap
               "
             >
               KAHOOK!
             </h1>
+          </div>
 
+          {/* QR 코드 */}
+          <div className="fixed left-1/2 top-44 -translate-x-1/2 z-30">
             <QRCodePanel
               qrCodeUrl={roomInfo.qrCode}
               roomCode={roomInfo.code || '---'}
             />
           </div>
 
-          {/* Team B */}
-          <TeamPanel
-            teamName={roomInfo.teamBName || 'TEAM B'}
-            players={teamB_players}
-            color="team-b"
-          />
-        </div>
-
-        {/* 하단: WAITING 패널 + Game Start 버튼 */}
-        <div className="flex flex-col items-center gap-4 mt-2">
-          <div className="w-full max-w-xl">
+          {/* WAITING 패널: GameStart 버튼 위로 일부 여백을 두고 배치 */}
+          <div className="fixed left-1/2 bottom-40 -translate-x-1/2 z-30 w-full max-w-xl px-4">
             <GlassPanel className="py-4 text-center bg-white/35">
               <p className="text-2xl md:text-3xl font-fredoka text-white tracking-[0.2em]">
                 WAITING...
               </p>
-              <p className="mt-2 text-xs md:text-sm text-white/80">
+              <p className="mt-2 text-xs md:text-sm font-game text-white/80">
                 모든 플레이어가 팀을 선택하고 준비를 완료하면 게임을 시작할 수 있어요.
               </p>
             </GlassPanel>
           </div>
 
-          <div className="w-full max-w-xl">
+          {/* GAMESTART 버튼: 하단 중앙에 적당한 여백으로 fixed 배치 */}
+          <div className="fixed left-1/2 bottom-8 -translate-x-1/2 z-40 w-full max-w-xl px-4">
             <GlossyButton
               onClick={() => {
                 console.log('[WaitingView] 🎮 Game Start 버튼 클릭 - Starting Tutorial');
@@ -126,23 +141,23 @@ export default function WaitingView() {
               GAME START
             </GlossyButton>
           </div>
+
+          {/* 하단 우측: Help 버튼 */}
+          <button
+            type="button"
+            className="
+              absolute bottom-4 right-4 text-white/80 text-2xl font-fredoka
+              hover:text-white drop-shadow-lg z-50
+            "
+            onClick={() => {
+              // 간단한 도움말 – 추후 별도 모달로 확장 가능
+              alert('모든 플레이어가 팀을 선택하고 READY 상태가 되어야 게임을 시작할 수 있습니다.');
+            }}
+          >
+            ?
+          </button>
         </div>
       </div>
-
-      {/* 하단 우측: Help 버튼 */}
-      <button
-        type="button"
-        className="
-          fixed bottom-4 right-4 text-white/80 text-2xl font-fredoka
-          hover:text-white drop-shadow-lg
-        "
-        onClick={() => {
-          // 간단한 도움말 – 추후 별도 모달로 확장 가능
-          alert('모든 플레이어가 팀을 선택하고 READY 상태가 되어야 게임을 시작할 수 있습니다.');
-        }}
-      >
-        ?
-      </button>
     </div>
   );
 }
