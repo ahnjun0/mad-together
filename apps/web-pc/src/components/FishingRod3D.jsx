@@ -309,7 +309,7 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
         object={clonedScene}
         scale={0.8}
         position={[0, -0.8, 0]}
-        rotation={[-BASE_ANGLE, mirrored ? Math.PI : 0, 0]}
+        rotation={[-BASE_ANGLE, 0, 0]}
       />
     </group>
   );

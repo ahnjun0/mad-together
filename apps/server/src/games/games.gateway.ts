@@ -151,8 +151,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (isHost) {
       // Host는 Observer - 게임을 관전하는 역할
-      client.join(`${roomId}_host`);
-      console.log(`[Gateway] Host (observer) joined room: ${roomId}`);
+      const hostRoom = `${roomId}_host`;
+      if (!client.rooms.has(hostRoom)) {
+        client.join(hostRoom);
+        console.log(`[Gateway] Host (observer) joined room: ${roomId}`);
+      }
     } else {
       // Player 입장
       const player = room.players.find(p => p.id === playerId);
