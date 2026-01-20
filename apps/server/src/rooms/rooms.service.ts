@@ -151,10 +151,26 @@ export class RoomsService {
     return { room, player, isExisting: false };
   }
 
-  async selectTeam(roomId: string, playerId: string, team: Team | null) {
+  async selectTeam(roomId: string, playerId: string, team: Team | null, maxPlayers: number = 10) {
     // 트랜잭션으로 처리하여 동시성 문제 예방
     return this.prisma.$transaction(async (tx) => {
-      // 1. 현재 방의 해당 팀 리더가 있는지 확인
+      // 1. 팀 정원 체크
+      if (team) {
+        // 이미 해당 팀에 소속된 경우 체크 불필요 (옵션)
+        // 여기서는 간단히 대상 팀의 인원 수만 체크 (나 자신 포함 여부는 아래 update에서 처리되지만, count는 DB기준)
+        // 정밀하게 하려면: 현재 내 팀이 target team이면 패스.
+        const me = await tx.player.findUnique({ where: { id: playerId }, select: { team: true } });
+        if (me?.team !== team) {
+            const count = await tx.player.count({
+                where: { roomId, team }
+            });
+            if (count >= maxPlayers) {
+                throw new BadRequestException(`Team ${team} is full (Max: ${maxPlayers})`);
+            }
+        }
+      }
+
+      // 2. 현재 방의 해당 팀 리더가 있는지 확인
       let isLeader = false;
       if (team) {
         const existingLeader = await tx.player.findFirst({
@@ -172,7 +188,7 @@ export class RoomsService {
         }
       }
 
-      // 2. 플레이어 업데이트
+      // 3. 플레이어 업데이트
       const player = await tx.player.update({
         where: { id: playerId },
         data: { 

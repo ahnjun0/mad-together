@@ -10,7 +10,7 @@ export default function CinematicView() {
   const [isSkipped, setIsSkipped] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
-  const { startCasting, isConnected: socketConnected } = usePcSocket();
+  const { startCasting, terminateGame, isConnected: socketConnected } = usePcSocket();
 
   useEffect(() => {
     // Video 로드 및 재생 시도
@@ -152,6 +152,23 @@ export default function CinematicView() {
               </GlassPanel>
             </div>
           )}
+
+          {/* 하단 좌측: 게임 종료 버튼 */}
+          <button
+            type="button"
+            className="
+              fixed bottom-4 left-4 px-4 py-2 rounded-lg
+              bg-red-500/80 hover:bg-red-600 text-white font-semibold
+              drop-shadow-lg z-50 transition-colors
+            "
+            onClick={() => {
+              if (window.confirm('정말로 게임을 종료하시겠습니까?\n모든 플레이어가 퇴장됩니다.')) {
+                terminateGame();
+              }
+            }}
+          >
+            게임 종료
+          </button>
         </div>
       </div>
     </div>

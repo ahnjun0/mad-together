@@ -22,6 +22,9 @@ export default function InGameView() {
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
 
+  // Accel (센서 파워 측정용)
+  const { power, requestPermission: requestAccelPermission } = useAccelSensor();
+
   // 서버에서 받은 센서 확인 상태와 동기화
   useEffect(() => {
     if (playerId && players && Array.isArray(players)) {

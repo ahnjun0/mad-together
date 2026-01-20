@@ -14,6 +14,10 @@ let isInitializing = false;
 let connectionPromise = null;
 let connectionResolve = null;
 
+// Heartbeat interval (30초마다 서버에 heartbeat 전송)
+let heartbeatInterval = null;
+const HEARTBEAT_INTERVAL_MS = 30 * 1000;
+
 export function usePcSocket() {
   const socketRef = useRef(null);
   const {
@@ -35,6 +39,7 @@ export function usePcSocket() {
     setCastingStarted,
     setCastingPower,
     showAlert,
+    setGameResult,
   } = useGameStore();
 
   useEffect(() => {
@@ -110,12 +115,30 @@ export function usePcSocket() {
           // playerId 없음 - Host는 Observer
         });
       }
+
+      // Heartbeat interval 시작 (Host 연결 유지 확인)
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      heartbeatInterval = setInterval(() => {
+        if (socket.connected) {
+          socket.emit('heartbeat');
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+      console.log('[Socket] 💓 Heartbeat interval started');
     });
 
     socket.on('disconnect', (reason) => {
       console.log('[Socket] ❌ PC Socket disconnected:', reason);
       setConnected(false);
       isInitializing = false;
+
+      // Heartbeat interval 정리
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        console.log('[Socket] 💔 Heartbeat interval stopped');
+      }
     });
 
     socket.on('connect_error', (error) => {
@@ -280,6 +303,32 @@ export function usePcSocket() {
       // 다음 단계 진행 가능 (시각적 큐는 TutorialView에서 처리)
     });
 
+    // 팀장 변경 이벤트 (팀장 퇴장 또는 위임 시)
+    socket.on('leader_updated', (data) => {
+      console.log('[Socket] 👑 Leader updated:', data);
+      const { team, newLeaderId } = data;
+      if (!team || !newLeaderId) return;
+
+      // 해당 팀의 모든 플레이어에서 isLeader를 false로 설정하고,
+      // 새 리더의 isLeader를 true로 설정
+      const currentPlayers = useGameStore.getState().players;
+      const teamKey = team === 'A' ? 'A' : team === 'B' ? 'B' : null;
+      if (!teamKey) return;
+
+      const updatedTeamPlayers = (currentPlayers[teamKey] || []).map(player => ({
+        ...player,
+        isLeader: (player.id === newLeaderId || player.playerId === newLeaderId),
+      }));
+
+      // store 업데이트
+      useGameStore.setState((state) => ({
+        players: {
+          ...state.players,
+          [teamKey]: updatedTeamPlayers,
+        },
+      }));
+    });
+
     // Game flow events
     socket.on('tutorial_started', () => {
       console.log('[Socket] 📚 Tutorial started');
@@ -375,16 +424,48 @@ export function usePcSocket() {
       console.log('[Socket] 🏁 Game ended:', {
         winnerTeam: data.winnerTeam,
         teamScores: data.teamScores,
+        playerScores: data.playerScores,
         mvp: data.mvp,
       });
-      
+
       if (data.teamScores) {
         setScore({
           A: data.teamScores.A || 0,
           B: data.teamScores.B || 0,
         });
       }
+
+      // Save game result with player scores and MVP
+      setGameResult({
+        winnerTeam: data.winnerTeam,
+        playerScores: data.playerScores || [],
+        mvp: data.mvp || null,
+      });
+
       setGameState('FINISHED');
+    });
+
+    // 게임 강제 종료 (Host 타임아웃 또는 Host 종료)
+    socket.on('game_terminated', (data) => {
+      console.log('[Socket] 🛑 Game terminated:', data);
+      showAlert('warning', data.message || '게임이 종료되었습니다.');
+      setGameState('HOME');
+      // 방 정보 초기화
+      setRoomInfo({
+        roomId: null,
+        code: null,
+        qrCode: null,
+        teamAName: 'A팀',
+        teamBName: 'B팀',
+        maxPlayers: 10,
+        status: null,
+      });
+    });
+
+    // 게임 종료 에러
+    socket.on('terminate_error', (data) => {
+      console.log('[Socket] ❌ Terminate error:', data);
+      showAlert('error', data.message || '게임 종료 중 오류가 발생했습니다.');
     });
 
     // Cleanup - 싱글톤이므로 리스너만 제거하고 연결은 유지
@@ -395,7 +476,7 @@ export function usePcSocket() {
       // socket.off('room_state');
       // etc...
     };
-  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, addShakeEvent, clearShakeHistory, accessToken, showAlert]);
+  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, addShakeEvent, clearShakeHistory, accessToken, showAlert, setGameResult]);
 
   // 소켓 연결 대기 헬퍼
   const waitForConnection = useCallback(async () => {
@@ -466,6 +547,16 @@ export function usePcSocket() {
     }
   }, []);
 
+  // 게임 종료 (Host 전용, PLAYING 상태가 아닐 때만)
+  const terminateGame = useCallback(() => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] 🛑 Emitting terminate_game');
+      socketInstance.emit('terminate_game');
+    } else {
+      console.warn('[Socket] ⚠️ Socket not connected, cannot terminate game');
+    }
+  }, []);
+
   // 소켓 연결 상태 반환
   const isConnected = socketInstance?.connected || false;
 
@@ -478,6 +569,7 @@ export function usePcSocket() {
     startCountdown,
     startCastingTimer,
     startCinematic,
+    terminateGame,
     waitForConnection,
   };
 }

@@ -1,4 +1,5 @@
-const API_BASE_URL = 'https://madcamp.cloud/api';
+const HOST = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
+export const API_BASE_URL = `${HOST.replace(/\/$/, '')}/api`;
 
 // 개발 모드 토큰 생성 헬퍼
 export function generateDevToken(prefix = 'host') {

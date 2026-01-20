@@ -1,5 +1,6 @@
 // apps/web-pc/src/components/PlayerCard.jsx
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../api/room';
 
 export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sensorChecked, profileImage }) {
   const [imageError, setImageError] = useState(false);
@@ -11,6 +12,13 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
   const borderClass = sensorChecked
     ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)] ring-2 ring-green-400'
     : 'border-white';
+
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${baseUrl}${url}`;
+  };
 
   return (
     <div className={`
@@ -32,7 +40,7 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
         >
           {profileImage && !imageError ? (
             <img
-              src={profileImage}
+              src={getImageUrl(profileImage)}
               alt={nickname}
               className="w-full h-full object-cover"
               onError={() => setImageError(true)}

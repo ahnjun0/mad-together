@@ -60,6 +60,9 @@ export const useGameStore = create(
     // Alert/Toast state
     alert: null, // { type: 'error' | 'warning' | 'info', message: string, details?: object }
 
+    // Game result state (set when game ends)
+    gameResult: null, // { winnerTeam, playerScores: [{playerId, nickname, team, score}], mvp: {playerId, nickname, score} }
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -133,6 +136,17 @@ export const useGameStore = create(
     clearAlert: () =>
       set((draft) => {
         draft.alert = null;
+      }),
+
+    // Game result actions
+    setGameResult: (result) =>
+      set((draft) => {
+        draft.gameResult = result;
+      }),
+
+    clearGameResult: () =>
+      set((draft) => {
+        draft.gameResult = null;
       }),
 
     // DevTools actions for testing

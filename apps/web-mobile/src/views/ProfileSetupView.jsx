@@ -19,6 +19,13 @@ export default function ProfileSetupView() {
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState(false);
 
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${SERVER_URL}${url}`;
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -127,7 +134,7 @@ export default function ProfileSetupView() {
             <div className="w-24 h-24 rounded-full bg-slate-700 border-2 border-white/30 overflow-hidden mb-4 relative">
               {previewUrl && !imageError ? (
                 <img
-                  src={previewUrl}
+                  src={getImageUrl(previewUrl)}
                   alt="Preview"
                   className="w-full h-full object-cover"
                   onError={() => {

@@ -12,7 +12,7 @@ import timerEndSound from '../assets/sounds/timer_sound_end.mp3';
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
   const { players, roomInfo, castingCountdown, isCastingStarted, castingPower } = useGameStore();
-  const { socket, startCountdown, startCastingTimer } = usePcSocket();
+  const { socket, startCountdown, startCastingTimer, terminateGame } = usePcSocket();
   const [teamACasted, setTeamACasted] = useState(false);
   const [teamBCasted, setTeamBCasted] = useState(false);
   const [castTriggered, setCastTriggered] = useState(false);
@@ -21,7 +21,7 @@ export default function CastingView() {
   const endAudioRef = useRef(null);
 
   // players가 배열인지 객체인지 확인하고 변환
-  const teamA_players = Array.isArray(players) 
+  const teamA_players = Array.isArray(players)
     ? players.filter(p => p.team === 'A')
     : (players.A || []);
   const teamB_players = Array.isArray(players)
@@ -219,6 +219,22 @@ export default function CastingView() {
         </div>
       )}
 
+      {/* 하단 좌측: 게임 종료 버튼
+      <button
+        type="button"
+        className="
+          absolute bottom-4 left-4 px-4 py-2 rounded-lg
+          bg-red-500/80 hover:bg-red-600 text-white font-semibold
+          drop-shadow-lg z-50 transition-colors
+        "
+        onClick={() => {
+          if (window.confirm('정말로 게임을 종료하시겠습니까?\n모든 플레이어가 퇴장됩니다.')) {
+            terminateGame();
+          }
+        }}
+      >
+        게임 종료
+      </button> */}
       {/* 하단 좌/우 팀장 아바타 - 화면 확대/축소와 무관하게 고정 위치 */}
       {leaderA && (
         <div className="absolute bottom-6 left-8 z-20 pointer-events-none">

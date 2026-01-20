@@ -8,7 +8,17 @@ export default defineConfig({
   server: {
     port: 5174, // pc port is 5174
     strictPort: true,
-    host: true
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        ws: true,
+      },
+    },
   },
   assetsInclude: ['**/*.glb', '**/*.gltf'], // Handle 3D model files as assets
 })

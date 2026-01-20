@@ -1,6 +1,7 @@
 // apps/web-pc/src/components/PlayerAvatar.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { API_BASE_URL } from '../api/room';
 
 export default function PlayerAvatar({
   nickname,
@@ -24,6 +25,14 @@ export default function PlayerAvatar({
     ? 'bg-orange-100' 
     : 'bg-cyan-100';
 
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    // API_BASE_URL usually ends with /api, remove it to get root
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${baseUrl}${url}`;
+  };
+
   return (
     <div className="flex flex-col items-center gap-2">
       {/* 원형 프로필 아바타 */}
@@ -46,7 +55,7 @@ export default function PlayerAvatar({
       >
         {profileImage && !imageError ? (
           <img
-            src={profileImage}
+            src={getImageUrl(profileImage)}
             alt={nickname}
             className="w-full h-full rounded-full object-cover"
             onError={() => setImageError(true)}

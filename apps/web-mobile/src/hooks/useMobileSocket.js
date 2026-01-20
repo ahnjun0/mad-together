@@ -123,6 +123,16 @@ export function useMobileSocket() {
       }
     });
 
+    socket.on('team_full', (data) => {
+      console.log('[Mobile] ⚠️ Team full:', data);
+      alert(data.message || '팀이 꽉 찼습니다.');
+      // Optimistic UI Revert: 현재 선택된 팀이 꽉 찬 팀이라면 선택 해제
+      const currentTeam = useMobileStore.getState().myTeam;
+      if (currentTeam === data.team) {
+          setTeam(null);
+      }
+    });
+
     // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)
     // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
