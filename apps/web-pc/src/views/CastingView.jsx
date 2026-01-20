@@ -182,7 +182,7 @@ export default function CastingView() {
             {!hasCastingTimerStarted &&
               '🎣 Casting을 준비하세요. 카운트다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!'}
             {hasCastingTimerStarted && !isCastingStarted &&
-              '⏳ 서버 카운트다운 진행 중입니다...'}
+              '⏳ 서버 카운트다운 진행 중입니다...'}ㄹ
             {isCastingStarted && !hasBothCasted &&
               '🚀 팀장이 캐스팅을 진행 중입니다!'}
             {hasBothCasted && isCastingStarted &&
