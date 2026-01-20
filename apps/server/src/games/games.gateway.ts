@@ -37,6 +37,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private gameStartTime: Map<string, Date> = new Map();
   private gamePlayerIds: Map<string, string[]> = new Map(); // roomId -> playerIds
+  // CASTING 단계에서 서버 주도 카운트다운 완료 후에만 캐스팅을 허용하기 위한 플래그
+  // roomId -> casting window open 여부
+  private castingWindowOpen: Map<string, boolean> = new Map();
 
   constructor(
     private gamesService: GamesService,
@@ -393,6 +396,34 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomId).emit('casting_phase');
   }
 
+  @SubscribeMessage('start_casting_timer')
+  async handleStartCastingTimer(@ConnectedSocket() client: AuthenticatedSocket) {
+    const { roomId } = client;
+    if (!roomId) return;
+
+    // TODO: 필요 시 RoomStatus.CASTING 여부를 검사하여 오남용 방지
+    console.log('[Gateway] start_casting_timer received for room:', roomId);
+    this.castingWindowOpen.set(roomId, false);
+
+    let count = 5;
+
+    const interval = setInterval(() => {
+      // 1~5 카운트다운 브로드캐스트
+      if (count > 0) {
+        this.server.to(roomId).emit('casting_countdown', { count });
+        console.log('[Gateway] casting_countdown:', { roomId, count });
+        count -= 1;
+        return;
+      }
+
+      // 0이 된 시점: casting_start 신호 후 타이머 종료
+      this.server.to(roomId).emit('casting_start');
+      this.castingWindowOpen.set(roomId, true);
+      console.log('[Gateway] casting_start emitted for room:', roomId);
+      clearInterval(interval);
+    }, 1000);
+  }
+
   @SubscribeMessage('cast_action')
   async handleCastAction(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -401,13 +432,36 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId, team } = client;
     if (!roomId || !playerId || !team) return;
 
+    // 서버 주도 카운트다운이 끝나지 않았다면 캐스팅 무시
+    const isWindowOpen = this.castingWindowOpen.get(roomId);
+    if (!isWindowOpen) {
+      console.warn(
+        '[Gateway] cast_action ignored: casting window not open',
+        { roomId, playerId, team, power: data?.power },
+      );
+      return;
+    }
+
     // 팀장인지 확인
     const isLeader = await this.redis.getTeamLeader(roomId, playerId);
     if (!isLeader) return;
 
+    // Power 값은 모바일에서 0~100 범위로 정규화되어 오므로
+    // 서버에서는 그대로 중계하되, 방어적으로 클램핑
+    const rawPower = typeof data.power === 'number' ? data.power : 0;
+    const clampedPower = Math.max(0, Math.min(rawPower, 100));
+
+    console.log('[Gateway] cast_action received:', {
+      roomId,
+      playerId,
+      team,
+      rawPower,
+      clampedPower,
+    });
+
     this.server.to(roomId).emit('cast_result', {
       team,
-      power: data.power,
+      power: clampedPower,
     });
   }
 

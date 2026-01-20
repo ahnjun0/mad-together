@@ -19,7 +19,9 @@ export function useMobileSocket() {
     setIsTeamLeader,
     setNickname,
     setToken,
-    setRoomId
+    setRoomId,
+    setCastingCountdown,
+    setIsCastingStarted,
   } = useMobileStore();
 
   useEffect(() => {
@@ -93,6 +95,17 @@ export function useMobileSocket() {
     socket.on('cinematic_started', () => setGameState('CINEMATIC'));
     socket.on('tutorial_started', () => setGameState('TUTORIAL'));
     socket.on('casting_phase', () => setGameState('CASTING'));
+    socket.on('casting_countdown', (data) => {
+      console.log('[Mobile] ⏰ Casting countdown:', data);
+      if (typeof data?.count === 'number') {
+        setCastingCountdown(data.count);
+      }
+    });
+    socket.on('casting_start', () => {
+      console.log('[Mobile] 🎣 Casting start signal received');
+      setIsCastingStarted(true);
+      // window 종료는 InGameView에서 2초 타이머로 처리
+    });
     socket.on('game_started', () => setGameState('PLAYING'));
 
     // 게임 종료 시 최종 점수 수신 (결과 화면용)
