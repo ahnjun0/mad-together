@@ -255,45 +255,6 @@ export function usePcSocket() {
       setGameState('TUTORIAL');
     });
 
-    socket.on('leaders_selected', (data) => {
-      console.log('[Socket] 👑 Leaders selected (RAW):', JSON.stringify(data, null, 2));
-      // { teamA: "plxxx...", teamB: "plyyy..." }
-      // Update players list to show Crown icons (👑) for leaders
-      if (data && (data.teamA || data.teamB)) {
-        // Reset all isLeader flags first, then set new leaders
-        // We need to get current players to reset flags
-        updatePlayers((prevPlayers) => {
-          const allPlayers = [
-            ...(prevPlayers.A || []), 
-            ...(prevPlayers.B || []), 
-            ...(prevPlayers.unassigned || [])
-          ];
-          
-          // Reset all isLeader flags
-          allPlayers.forEach((p) => {
-            p.isLeader = false;
-          });
-          
-          // Set isLeader for selected leaders
-          if (data.teamA) {
-            const leaderA = allPlayers.find((p) => (p.id || p.playerId) === data.teamA);
-            if (leaderA) leaderA.isLeader = true;
-          }
-          if (data.teamB) {
-            const leaderB = allPlayers.find((p) => (p.id || p.playerId) === data.teamB);
-            if (leaderB) leaderB.isLeader = true;
-          }
-          
-          // Reorganize by team
-          return {
-            A: allPlayers.filter((p) => p.team === 'A'),
-            B: allPlayers.filter((p) => p.team === 'B'),
-            unassigned: allPlayers.filter((p) => !p.team || p.team === null),
-          };
-        });
-      }
-    });
-
     socket.on('casting_phase', () => {
       console.log('[Socket] 🎣 Casting phase started');
       setGameState('CASTING');
@@ -419,12 +380,6 @@ export function usePcSocket() {
     }
   }, []);
 
-  const selectLeaders = useCallback(() => {
-    if (socketInstance?.connected) {
-      socketInstance.emit('select_leaders');
-    }
-  }, []);
-
   const startCasting = useCallback(() => {
     if (socketInstance?.connected) {
       socketInstance.emit('start_casting');
@@ -455,7 +410,6 @@ export function usePcSocket() {
     isConnected,
     joinRoom,
     startTutorial,
-    selectLeaders,
     startCasting,
     startCountdown,
     startCinematic,

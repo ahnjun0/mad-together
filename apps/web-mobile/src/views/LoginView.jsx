@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
 import { GoogleLogin } from '@react-oauth/google';
 
-const SERVER_URL = import.meta.env.VITE_API_URL;
+const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
 export default function LoginView() {
   const [nickname, setNickname] = useState('');

@@ -74,7 +74,7 @@ export default function CastingView() {
                 <span className="text-2xl">👑</span>
                 <div>
                   <p className="font-bold text-gray-800">{leaderA.nickname || 'Unknown'}</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 font-game">
                     {teamACasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
                   </p>
                 </div>
@@ -119,7 +119,7 @@ export default function CastingView() {
                 <span className="text-2xl">👑</span>
                 <div>
                   <p className="font-bold text-gray-800">{leaderB.nickname || 'Unknown'}</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 font-game">
                     {teamBCasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
                   </p>
                 </div>
@@ -166,7 +166,7 @@ export default function CastingView() {
           animate={{ opacity: 1 }}
           className="bg-black/70 text-white px-6 py-3 rounded-lg backdrop-blur-sm"
         >
-          <p className="text-lg font-semibold">
+          <p className="text-lg font-semibold font-game">
             {canStartCountdown 
               ? '✅ 양 팀 모두 캐스팅 완료!' 
               : '🎣 팀장이 캐스팅을 완료해주세요'}
