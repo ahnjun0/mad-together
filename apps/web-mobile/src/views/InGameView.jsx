@@ -6,7 +6,7 @@ import { useShake, requestPermission as requestShakePermission } from '../hooks/
 import { useAccelSensor } from '../hooks/useAccelSensor';
 
 export default function InGameView() {
-  const { gameState, myTeam, score, isTeamLeader, players, playerId } = useMobileStore();
+  const { gameState, myTeam, isTeamLeader, players, playerId } = useMobileStore();
   const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
@@ -129,9 +129,7 @@ export default function InGameView() {
              </span>
              {isTeamLeader && <span className="text-yellow-400 text-xs font-black bg-black/50 px-2 py-0.5 rounded backdrop-blur-md self-start mt-1">👑 LEADER</span>}
           </div>
-          <div className="text-white font-mono text-2xl font-black bg-black/30 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
-             {score.A} : {score.B}
-          </div>
+          {/* 점수는 PC(Host) 화면에서만 표시 - 모바일은 센서 전송에 집중 */}
        </div>
 
        {/* 메인 컨텐츠 영역 */}

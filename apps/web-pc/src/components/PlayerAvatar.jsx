@@ -1,13 +1,14 @@
 // apps/web-pc/src/components/PlayerAvatar.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-export default function PlayerAvatar({ 
-  nickname, 
-  sensorChecked = false, 
+export default function PlayerAvatar({
+  nickname,
+  sensorChecked = false,
   teamColor = 'team-a',
-  profileImage 
+  profileImage
 }) {
+  const [imageError, setImageError] = useState(false);
   // 팀 색상에 따른 기본 테두리 색상
   const defaultBorderColor = teamColor === 'team-a' 
     ? 'border-orange-400' 
@@ -43,11 +44,12 @@ export default function PlayerAvatar({
           ease: 'easeInOut',
         }}
       >
-        {profileImage ? (
+        {profileImage && !imageError ? (
           <img
             src={profileImage}
             alt={nickname}
             className="w-full h-full rounded-full object-cover"
+            onError={() => setImageError(true)}
           />
         ) : (
           <span className="text-2xl font-black text-gray-700">

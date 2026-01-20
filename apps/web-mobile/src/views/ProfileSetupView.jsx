@@ -4,26 +4,53 @@ import { useMobileSocket } from '../hooks/useMobileSocket';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
+// 허용되는 이미지 형식
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export default function ProfileSetupView() {
   const { nickname, profileImage, token, setNickname } = useMobileStore();
   const { joinRoom } = useMobileSocket();
-  
+
   const [inputNickname, setInputNickname] = useState(nickname || '');
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(profileImage || null); // 구글 프로필 이미지를 기본값으로 사용
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState(false);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // 파일 크기 검증
+    if (file.size > MAX_FILE_SIZE) {
+      setError('이미지 크기는 10MB 이하여야 합니다.');
+      return;
     }
+
+    // 파일 형식 검증 (MIME type 또는 확장자)
+    const isValidType = ALLOWED_TYPES.includes(file.type) ||
+      /\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(file.name);
+
+    if (!isValidType) {
+      setError('지원되지 않는 이미지 형식입니다. (JPG, PNG, GIF, WebP 지원)');
+      return;
+    }
+
+    setError('');
+    setImageError(false);
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result);
+    };
+    reader.onerror = () => {
+      setError('이미지를 읽을 수 없습니다. 다른 이미지를 선택해주세요.');
+      setSelectedFile(null);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e) => {
@@ -53,7 +80,22 @@ export default function ProfileSetupView() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        // 서버에서 반환하는 에러 메시지 처리
+        let errorMessage = '프로필 설정에 실패했습니다.';
+        try {
+          const errData = await response.json();
+          if (errData.message) {
+            errorMessage = errData.message;
+          }
+        } catch {
+          // JSON 파싱 실패 시 상태 코드 기반 메시지
+          if (response.status === 413) {
+            errorMessage = '이미지 크기가 너무 큽니다. 10MB 이하의 이미지를 선택해주세요.';
+          } else if (response.status === 400) {
+            errorMessage = '지원되지 않는 이미지 형식입니다.';
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -68,7 +110,7 @@ export default function ProfileSetupView() {
 
     } catch (err) {
       console.error(err);
-      setError('프로필 설정에 실패했습니다.');
+      setError(err.message || '프로필 설정에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -83,8 +125,16 @@ export default function ProfileSetupView() {
           {/* Image Upload */}
           <div className="flex flex-col items-center">
             <div className="w-24 h-24 rounded-full bg-slate-700 border-2 border-white/30 overflow-hidden mb-4 relative">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+              {previewUrl && !imageError ? (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  onError={() => {
+                    setImageError(true);
+                    setError('이미지를 표시할 수 없습니다. 다른 이미지를 선택해주세요.');
+                  }}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-4xl">👤</div>
               )}

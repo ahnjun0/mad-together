@@ -179,7 +179,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerIds = room.players.map(p => p.id);
 
     // Redis에서 실시간 상태 가져오기
-    const [readyStates, playerScores] = await Promise.all([
+    const [readyStates, playerScores, teamScores] = await Promise.all([
       Promise.all(
         playerIds.map(async (id) => ({
           playerId: id,
@@ -188,6 +188,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         })),
       ),
       this.redis.getAllPlayerScores(roomId, playerIds),
+      this.redis.getTeamScores(roomId), // 팀 점수 조회 추가
     ]);
 
     // room_state 데이터 구성 - Player 테이블의 고정된 닉네임 사용
@@ -198,6 +199,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         status: room.status,
         teamAName: room.teamAName,
         teamBName: room.teamBName,
+      },
+      // 팀 점수 (PLAYING/FINISHED 상태에서 재접속 시 점수 동기화용)
+      teamScores: {
+        A: teamScores.A || 0,
+        B: teamScores.B || 0,
       },
       players: room.players.map(p => ({
         id: p.id,

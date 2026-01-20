@@ -126,7 +126,7 @@ export function usePcSocket() {
     // Room state events
     socket.on('room_state', (data) => {
       console.log('[Socket] 📋 Room state received (RAW):', JSON.stringify(data, null, 2));
-      
+
       if (data.room) {
         // Update room info
         setRoomInfo({
@@ -150,6 +150,15 @@ export function usePcSocket() {
           console.log('[Socket] 🎮 Game state updated:', data.room.status);
           setGameState(statusMap[data.room.status]);
         }
+      }
+
+      // 팀 점수 동기화 (PLAYING/FINISHED 상태에서 재접속 시)
+      if (data.teamScores) {
+        console.log('[Socket] 📊 Team scores synced:', data.teamScores);
+        setScore({
+          A: data.teamScores.A || 0,
+          B: data.teamScores.B || 0,
+        });
       }
 
       // Update players list with normalization

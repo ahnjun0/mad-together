@@ -7,13 +7,12 @@ const SOCKET_NAMESPACE = '/game';
 
 export function useMobileSocket() {
   const socketRef = useRef(null);
-  const { 
+  const {
     token,
     roomId,
     playerId,
     myTeam,
-    setGameState, 
-    updateScore, 
+    setGameState,
     setConnected,
     setPlayerId,
     setTeam,
@@ -95,13 +94,24 @@ export function useMobileSocket() {
     socket.on('tutorial_started', () => setGameState('TUTORIAL'));
     socket.on('casting_phase', () => setGameState('CASTING'));
     socket.on('game_started', () => setGameState('PLAYING'));
-    socket.on('game_ended', () => setGameState('FINISHED'));
 
-    socket.on('score_update', (data) => {
-      if (data.teams) {
-        updateScore(data.teams);
+    // 게임 종료 시 최종 점수 수신 (결과 화면용)
+    socket.on('game_ended', (data) => {
+      console.log('[Mobile] 🏁 Game ended:', data);
+      setGameState('FINISHED');
+      // 최종 점수 저장 (ResultView에서 표시용)
+      if (data.teamScores) {
+        useMobileStore.getState().setFinalScore({
+          A: data.teamScores.A || 0,
+          B: data.teamScores.B || 0,
+          winnerTeam: data.winnerTeam,
+          mvp: data.mvp,
+        });
       }
     });
+
+    // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)
+    // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
     socket.on('leader_updated', (data) => {
       console.log('Leader updated:', data);
