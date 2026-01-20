@@ -1,180 +1,183 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import SplitScreen from '../components/SplitScreen';
+import GlassPanel from '../components/GlassPanel';
+import GlossyButton from '../components/GlossyButton';
+import PlayerAvatar from '../components/PlayerAvatar';
+import bgOnship from '../assets/background_onship.png';
 
-// PC (Host) only view - Split screen for Tutorial with sensor check
+// PC (Host) only view - Sensor Check Phase
 export default function TutorialView() {
   const { players, roomInfo } = useGameStore();
-  const { socket, selectLeaders, startCinematic } = usePcSocket();
-  const [allSensorsChecked, setAllSensorsChecked] = useState(false);
+  const { socket, startCinematic, isConnected: socketConnected } = usePcSocket();
 
-  // players가 객체 형태로 저장됨: { A: [], B: [], unassigned: [] }
-  // Tutorial에서는 unassigned 플레이어를 필터링 (팀이 할당된 플레이어만 표시)
-  const teamA_players = Array.isArray(players) 
-    ? players.filter(p => p.team === 'A')
-    : (players.A || []);
-  const teamB_players = Array.isArray(players)
-    ? players.filter(p => p.team === 'B')
-    : (players.B || []);
+  // Host(PC 관리자)는 리스트에서 제외
+  const filterNonHost = (list = []) => list.filter((p) => !p.isHost);
 
+  const teamA_players = filterNonHost(players.A || []);
+  const teamB_players = filterNonHost(players.B || []);
+
+  // 모든 플레이어의 센서 확인 상태 체크 (Host 제외)
+  const allPlayers = [...teamA_players, ...teamB_players];
+  const allSensorsChecked = allPlayers.length > 0 && allPlayers.every((p) => p.sensorChecked === true);
+
+  // player_updated 이벤트 리스너 (센서 상태 업데이트 감지)
   useEffect(() => {
     if (!socket) return;
 
-    const handleAllSensorsChecked = () => {
-      console.log('[TutorialView] ✅ All sensors checked');
-      setAllSensorsChecked(true);
-    };
-
     const handlePlayerUpdated = (data) => {
       console.log('[TutorialView] 🔄 Player updated:', data);
-      // player_updated 이벤트로 sensorChecked 상태가 업데이트됨
       // store가 자동으로 업데이트되므로 리렌더링됨
     };
 
-    const handleLeadersSelected = (data) => {
-      console.log('[TutorialView] 👑 Leaders selected, starting cinematic in 3s...', data);
-      // 3초 후 시네마틱 시작
-      setTimeout(() => {
-        startCinematic();
-      }, 3000);
-    };
-
-    socket.on('all_sensor_checked', handleAllSensorsChecked);
     socket.on('player_updated', handlePlayerUpdated);
     socket.on('leaders_selected', handleLeadersSelected);
 
     return () => {
-      socket.off('all_sensor_checked', handleAllSensorsChecked);
       socket.off('player_updated', handlePlayerUpdated);
       socket.off('leaders_selected', handleLeadersSelected);
     };
   }, [socket, startCinematic]);
 
-  const handleSelectLeaders = () => {
-    console.log('[TutorialView] 👑 Selecting leaders');
-    selectLeaders();
+  const handleStartCinematic = () => {
+    if (allSensorsChecked && socketConnected) {
+      console.log('[TutorialView] 🎬 All sensors checked, starting cinematic...');
+      startCinematic();
+    }
   };
 
-  // Render player item with sensor check status
-  const renderPlayerItem = (player) => (
-    <div
-      key={player.id || player.playerId}
-      className={`p-3 rounded-xl border-2 transition-all shadow-sm ${
-        player.sensorChecked
-          ? player.team === 'A'
-            ? 'bg-green-50 border-green-400 ring-2 ring-green-300 ring-offset-2'
-            : 'bg-green-50 border-green-400 ring-2 ring-green-300 ring-offset-2'
-          : player.team === 'A'
-          ? 'bg-orange-50 border-orange-200'
-          : 'bg-cyan-50 border-cyan-200'
-      } ${player.sensorChecked ? 'scale-105 z-10' : ''}`}
-    >
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
-            player.team === 'A' ? 'bg-orange-500 text-white' : 'bg-cyan-500 text-white'
-        }`}>
-            {player.team}
-        </div>
-        <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-                {player.isLeader && (
-                <span className="text-xl animate-bounce" title="팀장">
-                    👑
-                </span>
-                )}
-                <p className="font-bold text-gray-800 truncate">{player.nickname || 'Unknown'}</p>
-            </div>
-        </div>
-        
-        {player.sensorChecked ? (
-          <div className="flex items-center gap-1.5 bg-green-100 px-2 py-1 rounded-lg border border-green-200">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
-            <span className="text-green-700 text-xs font-bold">OK</span>
+  // Team A 컨텐츠
+  const teamAContent = (
+    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+      {/* 팀 이름 패널: 화면 가로 기준 1/4 지점에 고정 (각 팀의 중앙선) */}
+      <div className="fixed left-[25%] top-8 -translate-x-1/2 z-30">
+        <GlassPanel border="team-a" className="px-6 py-3">
+          <h2 className="text-4xl md:text-5xl font-game text-team-a text-center drop-shadow-lg whitespace-nowrap">
+            {roomInfo.teamAName || 'TEAM A'}
+          </h2>
+        </GlassPanel>
+      </div>
+
+      {/* 플레이어 아바타 리스트 - 5열 그리드, 그리드 중앙이 팀의 중앙선(1/4)에 고정 */}
+      <div className="fixed left-[25%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+        {teamA_players.length > 0 ? (
+          <div className="grid grid-cols-5 gap-4">
+            {teamA_players.map((player) => (
+              <PlayerAvatar
+                key={player.id || player.playerId}
+                nickname={player.nickname}
+                sensorChecked={player.sensorChecked}
+                teamColor="team-a"
+                profileImage={player.profileImage}
+              />
+            ))}
           </div>
         ) : (
-          <span className="text-gray-400 text-xs font-medium animate-pulse">Waiting...</span>
+          <div className="text-white/60 font-game text-lg text-center">
+            대기 중...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Team B 컨텐츠
+  const teamBContent = (
+    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+      {/* 팀 이름 패널: 화면 가로 기준 3/4 지점에 고정 (각 팀의 중앙선) */}
+      <div className="fixed left-[75%] top-8 -translate-x-1/2 z-30">
+        <GlassPanel border="team-b" className="px-6 py-3">
+          <h2 className="text-4xl md:text-5xl font-game text-team-b text-center drop-shadow-lg whitespace-nowrap">
+            {roomInfo.teamBName || 'TEAM B'}
+          </h2>
+        </GlassPanel>
+      </div>
+
+      {/* 플레이어 아바타 리스트 - 5열 그리드, 그리드 중앙이 팀의 중앙선(3/4)에 고정 */}
+      <div className="fixed left-[75%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+        {teamB_players.length > 0 ? (
+          <div className="grid grid-cols-5 gap-4">
+            {teamB_players.map((player) => (
+              <PlayerAvatar
+                key={player.id || player.playerId}
+                nickname={player.nickname}
+                sensorChecked={player.sensorChecked}
+                teamColor="team-b"
+                profileImage={player.profileImage}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-white/60 font-game text-lg text-center">
+            대기 중...
+          </div>
         )}
       </div>
     </div>
   );
 
   return (
-    <div className="w-full h-[100dvh] flex flex-col md:flex-row bg-slate-900 overflow-hidden relative">
-      {/* Team B - Left/Top Side */}
-      <div className="flex-1 bg-gradient-to-br from-cyan-900 to-slate-900 p-6 md:p-8 flex flex-col relative overflow-hidden">
-        {/* Background Decoration */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-            <div className="absolute top-10 left-10 text-9xl">🌊</div>
-            <div className="absolute bottom-20 right-20 text-8xl">💧</div>
-        </div>
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
+      <div 
+        className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom]"
+        style={{ 
+          backgroundImage: `url(${bgOnship})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat'
+        }}
+      />
 
-        <div className="text-center mb-6 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-black text-cyan-300 drop-shadow-lg mb-2">
-            TEAM B
-          </h2>
-          <div className="inline-block px-4 py-1 bg-cyan-900/50 rounded-full border border-cyan-500/30">
-            <p className="text-cyan-100 font-medium text-sm animate-pulse">
-                📲 Check your sensors!
-            </p>
+      {/* Content Layer (Safe Zone): UI 컨테이너는 중앙에 배치 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
+        <div className="w-full max-w-[1600px] h-full relative">
+          {/* 상단 연결 상태 배지 */}
+          <div className="absolute top-4 right-4 z-50">
+            <div
+              className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
+                socketConnected
+                  ? 'bg-green-100/90 text-green-800'
+                  : 'bg-red-100/90 text-red-800'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  socketConnected ? 'bg-green-500' : 'bg-red-500'
+                } animate-pulse`}
+              />
+              {socketConnected ? '서버 연결됨' : '서버 연결 중...'}
+            </div>
           </div>
-        </div>
 
-        {/* Team B Players List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10 px-2">
-          <div className="space-y-3 max-w-md mx-auto">
-            {teamB_players.length > 0 ? (
-              teamB_players.map(renderPlayerItem)
+          {/* SplitScreen: 좌우 팀 패널 */}
+          <div className="w-full h-full">
+            <SplitScreen leftContent={teamAContent} rightContent={teamBContent} />
+          </div>
+
+          {/* 하단 중앙: Instruction Panel or Start Button - 항상 화면 중앙에 고정 */}
+          <div className="fixed left-1/2 bottom-8 -translate-x-1/2 z-40 w-full max-w-2xl px-4">
+            {allSensorsChecked ? (
+              <GlossyButton
+                onClick={handleStartCinematic}
+                disabled={!socketConnected}
+                variant="primary"
+              >
+                게임 시작
+              </GlossyButton>
             ) : (
-              <p className="text-cyan-500/50 text-sm text-center py-10 font-medium italic">No players in Team B</p>
+              <GlassPanel className="py-4 px-6 text-center bg-white/35">
+                <p className="text-lg md:text-xl font-game text-white leading-relaxed">
+                  휴대폰을 흔들어 센서를 확인하세요
+                </p>
+                <p className="text-sm md:text-base font-game text-white/90 mt-1">
+                  아이폰은 권한 허용이 필요합니다.
+                </p>
+              </GlassPanel>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Vertical Divider (Desktop) / Horizontal (Mobile) */}
-      <div className="h-1 w-full md:w-1 md:h-full bg-slate-700 shadow-2xl z-20 shrink-0"></div>
-
-      {/* Team A - Right/Bottom Side */}
-      <div className="flex-1 bg-gradient-to-bl from-orange-900 to-slate-900 p-6 md:p-8 flex flex-col relative overflow-hidden">
-        {/* Background Decoration */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-            <div className="absolute top-20 right-10 text-9xl">🔥</div>
-            <div className="absolute bottom-10 left-20 text-8xl">⚡</div>
-        </div>
-
-        <div className="text-center mb-6 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-black text-orange-300 drop-shadow-lg mb-2">
-            TEAM A
-          </h2>
-          <div className="inline-block px-4 py-1 bg-orange-900/50 rounded-full border border-orange-500/30">
-            <p className="text-orange-100 font-medium text-sm animate-pulse">
-                📲 Check your sensors!
-            </p>
-          </div>
-        </div>
-
-        {/* Team A Players List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10 px-2">
-          <div className="space-y-3 max-w-md mx-auto">
-            {teamA_players.length > 0 ? (
-              teamA_players.map(renderPlayerItem)
-            ) : (
-              <p className="text-orange-500/50 text-sm text-center py-10 font-medium italic">No players in Team A</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Select Leaders Button (Floating) */}
-      <div className={`absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-500 ${
-          allSensorsChecked ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'
-      }`}>
-        <button
-          onClick={handleSelectLeaders}
-          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-2xl text-white font-black text-xl transition-all shadow-xl hover:shadow-purple-500/50 hover:scale-105 active:scale-95 flex items-center gap-3 border border-white/20"
-        >
-          <span>👑</span> SELECT LEADERS
-        </button>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&display=swap');
+/* Design Spec 1. Font Import */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,16 +7,22 @@
 
 @layer base {
   body {
-    font-family: 'Fredoka One', cursive, system-ui, sans-serif;
+    /* 기본 폰트 적용 */
+    font-family: 'Fredoka One', cursive;
+    /* 배경 이미지가 로드되기 전 기본 색상 */
+    @apply bg-cyan-200; 
   }
 }
 
 @layer utilities {
+  /* Design Spec 3. Text Shadow (Outline Effect) */
+  /* .text-outline 클래스로 사용 */
   .text-outline {
-    text-shadow:
-      -2px -2px 0 #1e3a8a,
-      2px -2px 0 #1e3a8a,
-      -2px 2px 0 #1e3a8a,
-      2px 2px 0 #1e3a8a;
+    text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff;
+  }
+  
+  /* 팀 컬러용 아웃라인 (필요 시 사용) */
+  .text-outline-dark {
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
   }
 }
