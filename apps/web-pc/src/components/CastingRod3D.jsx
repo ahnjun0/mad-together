@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF, PerspectiveCamera, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import rodGlb from '../assets/rod.glb';
+import rodGlb from '../assets/rod2.glb';
 
 // Bone names from the GLB file (no dots in names)
 const BONE_NAMES = ['본', '본001', '본002', '본003', '본004'];
@@ -154,12 +154,12 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
 
   return (
     <group ref={groupRef}>
-      {/* Position rod at chest height, centered */}
+      {/* PlayingView의 FishingRod3D와 비슷한 스케일/위치로 조정 */}
       <primitive
         object={clonedScene}
-        scale={0.5}
-        position={[0, -1.2, 0]}
-        rotation={[0.1, mirrored ? Math.PI : 0, 0]} // Slight tilt, mirror for Team B
+        scale={0.8}
+        position={[0, -0.8, 0]}
+        rotation={[0.1, mirrored ? Math.PI : 0, 0]}
       />
     </group>
   );
@@ -170,16 +170,16 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
  * power(0-100)에 따라 캐스팅 모션 강도가 달라짐
  */
 export function CastingRod3D({ team, className = '', power = 0 }) {
-  const mirrored = team === 'B';
+  const mirrored = false;
 
   return (
     <div className={`w-full h-full ${className}`}>
       <Canvas shadows>
-        {/* Camera - 살짝 더 가깝게 당겨서 몰입감 향상 */}
+        {/* Camera - PlayingView의 FishingRod3D와 유사한 시점으로 맞춤 */}
         <PerspectiveCamera
           makeDefault
-          position={[0, 0.4, 1.5]}
-          fov={70}
+          position={[0, 0.4, 1.2]}
+          fov={75}
           near={0.1}
           far={100}
         />
@@ -198,7 +198,7 @@ export function CastingRod3D({ team, className = '', power = 0 }) {
         {/* Environment for reflections */}
         <Environment preset="sunset" />
 
-        {/* The casting fishing rod */}
+        {/* The casting fishing rod - PlayingView와 유사한 배치로 조정 */}
         <CastingRodModel team={team} mirrored={mirrored} power={power} />
 
         {/* Optional: Ocean/sky background gradient via fog */}

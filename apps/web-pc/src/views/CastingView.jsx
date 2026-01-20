@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
@@ -6,6 +6,8 @@ import { CastingRod3D } from '../components/CastingRod3D';
 import PlayerAvatar from '../components/PlayerAvatar';
 import backgroundOnship from '../assets/background_onship.png';
 import backgroundOcean from '../assets/background-ocean.png';
+import timerSound from '../assets/sounds/timer_sound.mp3';
+import timerEndSound from '../assets/sounds/timer_sound_end.mp3';
 
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
@@ -15,6 +17,8 @@ export default function CastingView() {
   const [teamBCasted, setTeamBCasted] = useState(false);
   const [castTriggered, setCastTriggered] = useState(false);
   const [hasCastingTimerStarted, setHasCastingTimerStarted] = useState(false);
+  const tickAudioRef = useRef(null);
+  const endAudioRef = useRef(null);
 
   // players가 배열인지 객체인지 확인하고 변환
   const teamA_players = Array.isArray(players) 
@@ -49,6 +53,36 @@ export default function CastingView() {
     };
   }, [socket]);
 
+  // 타이머 효과음 초기화
+  useEffect(() => {
+    tickAudioRef.current = new Audio(timerSound);
+    endAudioRef.current = new Audio(timerEndSound);
+  }, []);
+
+  // 캐스팅 카운트다운 변경 시 효과음 재생
+  useEffect(() => {
+    if (castingCountdown === null || castingCountdown === undefined) return;
+    const tickAudio = tickAudioRef.current;
+    const endAudio = endAudioRef.current;
+    if (!tickAudio || !endAudio) return;
+
+    if (castingCountdown > 0) {
+      try {
+        tickAudio.currentTime = 0;
+        void tickAudio.play();
+      } catch (e) {
+        console.warn('[CastingView] Failed to play timer tick:', e);
+      }
+    } else if (castingCountdown === 0) {
+      try {
+        endAudio.currentTime = 0;
+        void endAudio.play();
+      } catch (e) {
+        console.warn('[CastingView] Failed to play timer end tick:', e);
+      }
+    }
+  }, [castingCountdown]);
+
   const handleStartCountdown = () => {
     console.log('[CastingView] ⏰ Starting countdown');
     startCountdown();
@@ -74,42 +108,7 @@ export default function CastingView() {
       className="w-full h-full relative flex items-center justify-center p-8 bg-cover bg-center"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      {/* 중앙 정보 패널 (팀명 / 리더 상태만 간단히) */}
-      <div className="w-full max-w-6xl grid grid-cols-2 gap-6 pointer-events-none">
-        {/* Team A Section */}
-        <div className="bg-white/90 rounded-[20px] border-2 border-orange-500 p-6 flex flex-col">
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold text-outline text-white mb-2">
-              {roomInfo.teamAName || 'Team A'}
-            </h2>
-            <div className="text-orange-500 text-4xl mb-4">🔥</div>
-          </div>
-
-          {/* Leader Highlight (텍스트만 간단히 유지) */}
-          {leaderA && (
-            <p className="mt-4 text-sm text-gray-700 font-game text-center">
-              {teamACasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
-            </p>
-          )}
-        </div>
-
-        {/* Team B Section */}
-        <div className="bg-white/90 rounded-[20px] border-2 border-cyan-500 p-6 flex flex-col">
-          <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold text-outline text-white mb-2">
-              {roomInfo.teamBName || 'Team B'}
-            </h2>
-            <div className="text-cyan-500 text-4xl mb-4">🌊</div>
-          </div>
-
-          {/* Leader Highlight (텍스트만 간단히 유지) */}
-          {leaderB && (
-            <p className="mt-4 text-sm text-gray-700 font-game text-center">
-              {teamBCasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
-            </p>
-          )}
-        </div>
-      </div>
+      {/* 중앙 정보 패널 제거 (화면을 3D 낚싯대와 배경에 집중) */}
 
       {/* 바다 위에 직접 보이는 3D 낚싯대 - 화면 전체를 사용하는 레이어 */}
       <div className="absolute inset-x-0 bottom-0 top-24 flex justify-between pointer-events-none px-16">
@@ -120,6 +119,43 @@ export default function CastingView() {
           <CastingRod3D team="B" power={castingPower.B || 0} className="w-full h-full" />
         </div>
       </div>
+
+      {/* Casting Power Result Panels - 각 팀 화면 상단 1/4, 3/4 위치 */}
+      {typeof castingPower.A === 'number' && (
+        <motion.div
+          className="absolute top-28 left-[25%] -translate-x-1/2 z-20"
+          initial={{ scale: 0.8, opacity: 0, y: -10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+        >
+          <div className="px-4 py-2 rounded-2xl bg-white/90 border-2 border-orange-400 shadow-xl flex items-center gap-2">
+            <span className="text-xl">🔥</span>
+            <span className="text-sm font-game text-gray-800">
+              Team A Power&nbsp;
+              <span className="font-black text-orange-500 text-lg">
+                {Math.round(castingPower.A)}
+              </span>
+            </span>
+          </div>
+        </motion.div>
+      )}
+
+      {typeof castingPower.B === 'number' && (
+        <motion.div
+          className="absolute top-28 left-[75%] -translate-x-1/2 z-20"
+          initial={{ scale: 0.8, opacity: 0, y: -10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+        >
+          <div className="px-4 py-2 rounded-2xl bg-white/90 border-2 border-cyan-400 shadow-xl flex items-center gap-2">
+            <span className="text-xl">🌊</span>
+            <span className="text-sm font-game text-gray-800">
+              Team B Power&nbsp;
+              <span className="font-black text-cyan-500 text-lg">
+                {Math.round(castingPower.B)}
+              </span>
+            </span>
+          </div>
+        </motion.div>
+      )}
 
       {/* Start Casting Timer Button (server-synced, 초기 1회) */}
       {!hasCastingTimerStarted && (
@@ -177,7 +213,7 @@ export default function CastingView() {
               {castingCountdown}
             </p>
             <p className="text-sm text-white/80 text-center mt-1 font-game">
-              서버 동기화 캐스팅 카운트다운
+              카운트 다운이 끝나면 휴대폰을 던져주세요!
             </p>
           </div>
         </div>

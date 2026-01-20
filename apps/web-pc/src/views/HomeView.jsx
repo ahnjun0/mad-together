@@ -109,7 +109,7 @@ export default function HomeView() {
                 className="
                   w-full px-4 py-3 md:py-4 rounded-[16px]
                   border-[3px] border-blue-500 bg-white/90
-                  text-gray-800 text-base md:text-lg
+                  text-gray-800 text-base md:text-lg font-game
                   focus:outline-none focus:ring-4 focus:ring-blue-300/60
                   placeholder:text-gray-400
                   shadow-sm
@@ -130,7 +130,7 @@ export default function HomeView() {
                 className="
                   w-full px-4 py-3 md:py-4 rounded-[16px]
                   border-[3px] border-team-a bg-white/90
-                  text-gray-800 text-base md:text-lg
+                  text-gray-800 text-base md:text-lg font-game
                   focus:outline-none focus:ring-4 focus:ring-orange-300/60
                   placeholder:text-gray-400
                   shadow-sm
@@ -151,7 +151,7 @@ export default function HomeView() {
                 className="
                   w-full px-4 py-3 md:py-4 rounded-[16px]
                   border-[3px] border-team-b bg-white/90
-                  text-gray-800 text-base md:text-lg
+                  text-gray-800 text-base md:text-lg font-game
                   focus:outline-none focus:ring-4 focus:ring-cyan-300/60
                   placeholder:text-gray-400
                   shadow-sm
@@ -178,7 +178,7 @@ export default function HomeView() {
                   className="
                     w-full appearance-none bg-transparent
                     px-4 py-3 md:py-4 pr-10
-                    text-gray-800 text-base md:text-lg
+                    text-gray-800 text-base md:text-lg font-game
                     focus:outline-none
                   "
                 >

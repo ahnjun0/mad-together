@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 
 export default function FinishedView() {
-  const { score } = useGameStore();
+  const { score, roomInfo } = useGameStore();
   const winner = score.A > score.B ? 'A' : score.A < score.B ? 'B' : null;
 
   return (
@@ -33,7 +33,9 @@ export default function FinishedView() {
             <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
               <span className="text-white font-bold text-xl">A</span>
             </div>
-            <h3 className="text-2xl font-bold text-orange-600">Team A</h3>
+            <h3 className="text-2xl font-bold text-orange-600">
+              {roomInfo.teamAName || 'Team A'}
+            </h3>
           </div>
 
           <div className="space-y-3 mb-6">
@@ -77,7 +79,9 @@ export default function FinishedView() {
             <div className="w-12 h-12 rounded-full bg-cyan-500 flex items-center justify-center">
               <span className="text-white font-bold text-xl">B</span>
             </div>
-            <h3 className="text-2xl font-bold text-cyan-600">Team B</h3>
+            <h3 className="text-2xl font-bold text-cyan-600">
+              {roomInfo.teamBName || 'Team B'}
+            </h3>
           </div>
 
           <div className="space-y-3 mb-6">
