@@ -49,6 +49,14 @@ export const useGameStore = create(
     // Max shakes per second for normalization
     MAX_SHAKES_PER_SECOND: 10,
 
+    // Casting phase state
+    castingCountdown: null, // 서버 캐스팅 카운트다운 (5~1)
+    isCastingStarted: false, // 서버에서 casting_start 수신 여부
+    castingPower: {
+      A: null,
+      B: null,
+    },
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -93,6 +101,24 @@ export const useGameStore = create(
     clearShakeHistory: () =>
       set((draft) => {
         draft.shakeHistory = { A: [], B: [] };
+      }),
+
+    setCastingCountdown: (count) =>
+      set((draft) => {
+        draft.castingCountdown = count;
+      }),
+
+    setCastingStarted: (started) =>
+      set((draft) => {
+        draft.isCastingStarted = started;
+      }),
+
+    setCastingPower: (team, power) =>
+      set((draft) => {
+        if (!draft.castingPower[team]) {
+          // allow only A/B keys
+        }
+        draft.castingPower[team] = power;
       }),
 
     // DevTools actions for testing

@@ -11,7 +11,7 @@ const BONE_NAMES = ['본', '본001', '본002', '본003', '본004'];
 
 /**
  * FishingRod model component with bone animation
- * Handles pump and wind motion + bend effect based on shake intensity
+ * Handles pump and wind motion + bend effect based on shake intensity (PLAYING 전용)
  */
 function FishingRodModel({ team, mirrored = false }) {
   const { scene } = useGLTF(rodGlb);
@@ -122,7 +122,8 @@ function FishingRodModel({ team, mirrored = false }) {
       let pumpAngle = 0;
       let bendIntensity = 0;
       const phaseProgress = animState.progress / phaseTime;
-      const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const easeInOut = (t) =>
+        t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
       switch (animState.phase) {
         case 1: // Pumping left (raise rod tip to left shoulder)
@@ -167,7 +168,7 @@ function FishingRodModel({ team, mirrored = false }) {
         if (index === 0) return;
 
         // Progressive bend - more bend toward the tip
-        const boneWeight = (index / (bones.length - 1)); // 0 to 1
+        const boneWeight = index / (bones.length - 1); // 0 to 1
         const bendAmount = bendIntensity * boneWeight * 0.15; // Max bend per bone
 
         // Bend toward "water" (forward/down direction)
@@ -176,7 +177,7 @@ function FishingRodModel({ team, mirrored = false }) {
       });
     } else {
       // Idle state - reset rotations smoothly
-      bones.forEach((bone, index) => {
+      bones.forEach((bone) => {
         if (!bone) return;
 
         // Lerp back to rest position
@@ -205,7 +206,7 @@ function FishingRodModel({ team, mirrored = false }) {
 }
 
 /**
- * FishingRod3D - Complete 3D fishing scene for one team
+ * FishingRod3D - Complete 3D fishing scene for one team (PLAYING 전용)
  */
 export function FishingRod3D({ team, className = '' }) {
   const mirrored = team === 'B';
