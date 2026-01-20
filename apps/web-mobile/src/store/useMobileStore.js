@@ -25,6 +25,8 @@ export const useMobileStore = create(
     // CASTING phase shared state
     castingCountdown: null, // 서버 캐스팅 카운트다운 (5~1)
     isCastingStarted: false, // 서버에서 casting_start 수신 여부
+    // 캐스팅 시 사용되는 peak power (5초 후 첫 shake)
+    castingPower: 0,
 
     // Actions
     setGameState: (state) =>

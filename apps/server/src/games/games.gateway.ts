@@ -215,7 +215,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       players: room.players.map(p => ({
         id: p.id,
         nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임
-        profileImage: (p as any).profileImage,
+        // Player.profileImage가 없을 경우 User.profileImage를 fallback으로 사용
+        profileImage: (p as any).profileImage || (p as any).user?.profileImage || null,
         team: p.team,
         isLeader: (p as any).isLeader,
         score: playerScores.get(p.id) || 0,
@@ -477,7 +478,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Power 값은 모바일에서 0~100 범위로 정규화되어 오므로
     // 서버에서는 그대로 중계하되, 방어적으로 클램핑
     const rawPower = typeof data.power === 'number' ? data.power : 0;
-    const clampedPower = Math.max(0, Math.min(rawPower, 100));
+    const clampedPower = Math.max(0, Math.min(rawPower, 1000));
 
     console.log('[Gateway] cast_action received:', {
       roomId,

@@ -15,6 +15,7 @@ export default function InGameView() {
     playerId,
     castingCountdown,
     isCastingStarted,
+    castingPower,
   } = useMobileStore();
   const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
@@ -43,9 +44,9 @@ export default function InGameView() {
       isCastingStarted &&
       !hasCasted
     ) {
-      // 5초 카운트다운 이후 첫 번째 Shake에서 power를 측정하여 캐스팅
-      const rawPower = power;
-      const calcPower = Math.min(rawPower / 2, 100);
+      // 5초 카운트다운 이후 첫 번째 Shake에서, store에 저장된 peak power를 사용해 캐스팅
+      const rawPower = castingPower;
+      const calcPower = Math.min(rawPower ** 2 , 1000);
       const normalizedPower = Math.round(calcPower);
 
       console.log('[Mobile] 🎣 Casting by first shake', {
@@ -83,7 +84,6 @@ export default function InGameView() {
     permission,
     isCastingStarted,
     hasCasted,
-    power,
     castAction,
     castComplete,
   ]);
@@ -91,8 +91,8 @@ export default function InGameView() {
   // useShake 내부적으로 permission 체크를 하지만, 여기서 permission 상태를 넘겨줌
   const { isShaking } = useShake(handleShake, permission);
 
-  // Accel (센서 파워 측정용)
-  const { power, requestPermission: requestAccelPermission } = useAccelSensor();
+  // Accel (센서 파워 측정용 - UI 게이지용)
+  const { power: sensorPower, requestPermission: requestAccelPermission } = useAccelSensor();
 
   // Reset cast state when game state changes (e.g., back to lobby or next game)
   useEffect(() => {
@@ -243,11 +243,11 @@ export default function InGameView() {
                                 {isCastingActive ? "폰을 크게 휘둘러 power를 모아요!" : "서버 카운트다운을 기다렸다가 던지세요!"}
                              </p>
                          )}
-                         {/* Power Gauge (Debug용) */}
+                         {/* Power Gauge (Debug용, 실시간 센서 power 시각화) */}
                          <div className="w-full max-w-xs mx-auto h-6 bg-black/40 rounded-full overflow-hidden mt-8 border-2 border-white/10 p-1">
                             <motion.div 
                                className="h-full bg-gradient-to-r from-yellow-400 to-red-500 rounded-full"
-                               style={{ width: `${Math.min((power / 2) || 0, 100)}%` }}
+                               style={{ width: `${Math.min((sensorPower / 2) || 0, 100)}%` }}
                             />
                          </div>
                       </div>

@@ -88,7 +88,7 @@ export class RoomsController {
     const baseUrl = process.env.MOBILE_WEB_URL || 'https://madcamp.cloud/mobile';
     const qrCode = await this.roomsService.generateQRCode(room.code, baseUrl);
 
-    return {
+      return {
       hasActiveRoom: true,
       room: {
         roomId: room.id,
@@ -100,7 +100,8 @@ export class RoomsController {
         players: room.players.map(p => ({
           id: p.id,
           nickname: p.nickname, // Player 테이블의 고정된 닉네임 사용
-          profileImage: p.profileImage,
+          // Player.profileImage가 비어 있으면 User.profileImage를 사용
+          profileImage: p.profileImage || (p as any).user?.profileImage || null,
           team: p.team,
           isLeader: p.isLeader,
         })),
@@ -111,7 +112,7 @@ export class RoomsController {
   @Get(':code')
   async getRoomByCode(@Param('code') code: string) {
     const room = await this.roomsService.getRoomByCode(code);
-    return {
+      return {
       roomId: room.id,
       code: room.code,
       status: room.status,
@@ -124,7 +125,7 @@ export class RoomsController {
       players: room.players.map(p => ({
         id: p.id,
         nickname: p.nickname, // Player 테이블의 고정된 닉네임 사용
-        profileImage: p.profileImage,
+        profileImage: p.profileImage || (p as any).user?.profileImage || null,
         team: p.team,
         isLeader: p.isLeader,
       })),
