@@ -63,22 +63,25 @@
 ## 🏗 시스템 아키텍처
 
 ```mermaid
-graph TD
-    UserPC[PC Host (Browser)] <-->|WebSocket / HTTP| Nginx
-    UserMobile[Mobile Player (Browser)] <-->|WebSocket / HTTP| Nginx
+flowchart TD
+    UserPC["💻 PC Host (Browser)"]
+    UserMobile["📱 Mobile Player (Browser)"]
     
-    subgraph "AWS EC2 (Dockerized Environment)"
-        Nginx[Nginx Proxy]
+    UserPC <--> |"WebSocket / HTTP"| Nginx
+    UserMobile <--> |"WebSocket / HTTP"| Nginx
+    
+    subgraph AWS_EC2 ["🌐 AWS EC2 (Dockerized Environment)"]
+        Nginx["Nginx Proxy"]
         
-        subgraph "Backend"
-            NestJS[NestJS API & Gateway]
-            Redis[(Redis - Realtime State)]
-            Postgres[(PostgreSQL - DB)]
+        subgraph Frontend ["🎨 Frontend Serving"]
+            WebPC["Web PC Build Files"]
+            WebMobile["Web Mobile Build Files"]
         end
         
-        subgraph "Frontend Serving"
-            WebPC[Web PC Build Files]
-            WebMobile[Web Mobile Build Files]
+        subgraph Backend ["⚙️ Backend"]
+            NestJS["NestJS API & Gateway"]
+            Redis[("🔴 Redis (Realtime State)")]
+            Postgres[("🔵 PostgreSQL (DB)")]
         end
         
         Nginx --> NestJS
@@ -88,6 +91,10 @@ graph TD
         NestJS <--> Redis
         NestJS <--> Postgres
     end
+
+    style Redis fill:#ffe5e5,stroke:#ff0000
+    style Postgres fill:#e5f0ff,stroke:#0000ff
+    style Nginx fill:#e5ffe5,stroke:#008000
 ```
 
 ---
