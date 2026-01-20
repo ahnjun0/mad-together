@@ -57,6 +57,9 @@ export const useGameStore = create(
       B: null,
     },
 
+    // Alert/Toast state
+    alert: null, // { type: 'error' | 'warning' | 'info', message: string, details?: object }
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -119,6 +122,17 @@ export const useGameStore = create(
           // allow only A/B keys
         }
         draft.castingPower[team] = power;
+      }),
+
+    // Alert actions
+    showAlert: (type, message, details = null) =>
+      set((draft) => {
+        draft.alert = { type, message, details };
+      }),
+
+    clearAlert: () =>
+      set((draft) => {
+        draft.alert = null;
       }),
 
     // DevTools actions for testing

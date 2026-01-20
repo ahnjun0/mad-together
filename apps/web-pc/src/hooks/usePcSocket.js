@@ -34,6 +34,7 @@ export function usePcSocket() {
     setCastingCountdown,
     setCastingStarted,
     setCastingPower,
+    showAlert,
   } = useGameStore();
 
   useEffect(() => {
@@ -256,6 +257,24 @@ export function usePcSocket() {
       // PC: 호스트가 게임 시작 버튼 활성화 가능
     });
 
+    socket.on('team_imbalance', (data) => {
+      console.log('[Socket] ⚠️ Team imbalance:', data);
+      showAlert(
+        'warning',
+        data.message || '양 팀의 인원 수가 같아야 게임을 시작할 수 있습니다.',
+        { teamACount: data.teamACount, teamBCount: data.teamBCount }
+      );
+    });
+
+    socket.on('team_full', (data) => {
+      console.log('[Socket] ⚠️ Team full:', data);
+      showAlert(
+        'warning',
+        data.message || `팀이 최대 인원(${data.maxPlayers}명)에 도달했습니다.`,
+        { team: data.team, maxPlayers: data.maxPlayers }
+      );
+    });
+
     socket.on('all_sensor_checked', () => {
       console.log('[Socket] 📱 All sensors checked');
       // 다음 단계 진행 가능 (시각적 큐는 TutorialView에서 처리)
@@ -370,7 +389,7 @@ export function usePcSocket() {
       // socket.off('room_state');
       // etc...
     };
-  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, addShakeEvent, clearShakeHistory, accessToken]);
+  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, addShakeEvent, clearShakeHistory, accessToken, showAlert]);
 
   // 소켓 연결 대기 헬퍼
   const waitForConnection = useCallback(async () => {

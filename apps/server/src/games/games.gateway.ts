@@ -285,6 +285,24 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, playerId } = client;
     if (!roomId || !playerId) return;
 
+    // 팀 선택 시 팀별 최대 인원 확인
+    if (data.team) {
+      const room = await this.roomsService.getRoomById(roomId);
+      const maxPlayersPerTeam = (room as any).maxPlayers || 10;
+      const currentTeamCount = room.players.filter(
+        p => p.team === data.team && p.id !== playerId
+      ).length;
+
+      if (currentTeamCount >= maxPlayersPerTeam) {
+        client.emit('team_full', {
+          team: data.team,
+          maxPlayers: maxPlayersPerTeam,
+          message: `이 팀은 이미 최대 인원(${maxPlayersPerTeam}명)에 도달했습니다.`,
+        });
+        return;
+      }
+    }
+
     const player = await this.roomsService.selectTeam(roomId, playerId, data.team);
     client.team = player.team || undefined;
 
@@ -320,12 +338,21 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 플레이어가 2명 이상일 때만 시작
     if (playerIds.length >= 2) {
       // 각 팀에 적어도 한 명씩은 있는지 확인
-      const hasTeamA = room.players.some(p => p.team === Team.A);
-      const hasTeamB = room.players.some(p => p.team === Team.B);
+      const teamAPlayers = room.players.filter(p => p.team === Team.A);
+      const teamBPlayers = room.players.filter(p => p.team === Team.B);
 
-      if (hasTeamA && hasTeamB) {
+      if (teamAPlayers.length > 0 && teamBPlayers.length > 0) {
         const allReady = await this.redis.areAllPlayersReady(roomId, playerIds);
         if (allReady) {
+          // 양 팀 인원이 같은지 확인
+          if (teamAPlayers.length !== teamBPlayers.length) {
+            this.server.to(roomId).emit('team_imbalance', {
+              teamACount: teamAPlayers.length,
+              teamBCount: teamBPlayers.length,
+              message: '양 팀의 인원 수가 같아야 게임을 시작할 수 있습니다.',
+            });
+            return;
+          }
           this.server.to(roomId).emit('all_ready');
         }
       }
@@ -504,6 +531,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 모든 플레이어 점수 초기화
     await this.redis.resetAllPlayerScores(roomId, playerIds);
+
+    // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 50)
+    const teamACount = room.players.filter(p => p.team === Team.A).length;
+    const goalScore = teamACount * 50;
+    await this.redis.setGoalScore(roomId, goalScore);
 
     await this.gamesService.startGame(roomId);
     this.gameStartTime.set(roomId, new Date());

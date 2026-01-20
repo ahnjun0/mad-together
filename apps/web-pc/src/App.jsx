@@ -9,6 +9,7 @@ import CastingView from './views/CastingView';
 import PlayingView from './views/PlayingView';
 import FinishedView from './views/FinishedView';
 import DevTools from './components/DevTools';
+import Toast from './components/Toast';
 import './App.css';
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
     <div className="w-screen h-screen overflow-hidden">
       {renderView()}
       {isAuthenticated && <DevTools />}
+      <Toast />
     </div>
   );
 }

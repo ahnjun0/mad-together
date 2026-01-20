@@ -24,7 +24,16 @@ export default {
         'glossy': '0 8px 0 0 #047857',
         'glossy-hover': '0 6px 0 0 #047857',
         'glossy-active': '0 2px 0 0 #047857',
-      }
+      },
+      keyframes: {
+        'fade-in-down': {
+          '0%': { opacity: '0', transform: 'translateX(-50%) translateY(-20px)' },
+          '100%': { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in-down': 'fade-in-down 0.3s ease-out',
+      },
     },
   },
   plugins: [],
