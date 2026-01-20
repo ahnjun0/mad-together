@@ -27,6 +27,8 @@ export function usePcSocket() {
     removePlayer,
     setRoomInfo,
     setConnected,
+    addShakeEvent,
+    clearShakeHistory,
     accessToken, // 인증 토큰 (hostDevToken 대신)
     roomInfo,
   } = useGameStore();
@@ -314,6 +316,7 @@ export function usePcSocket() {
 
     socket.on('game_started', () => {
       console.log('[Socket] 🎮 Game started');
+      clearShakeHistory(); // Reset shake history for new game
       setGameState('PLAYING');
     });
 
@@ -324,7 +327,7 @@ export function usePcSocket() {
         teams: data.teams,
         fishPosition: data.teams ? (data.teams.A + data.teams.B > 0 ? data.teams.A / (data.teams.A + data.teams.B) : 0.5) : null,
       });
-      
+
       if (data.teams) {
         const newScore = {
           A: data.teams.A || 0,
@@ -332,7 +335,13 @@ export function usePcSocket() {
         };
         console.log('[Socket] 📊 Updating store score:', newScore);
         setScore(newScore);
-        
+
+        // Track shake event for fishing rod animation
+        if (data.event && data.event.team) {
+          addShakeEvent(data.event.team);
+          console.log('[Socket] 🎣 Shake event tracked for team:', data.event.team);
+        }
+
         // Show player who shook (optional: can be used for floating nickname)
         if (data.event) {
           console.log('[Socket] 🎯 Player shook:', {
@@ -368,7 +377,7 @@ export function usePcSocket() {
       // socket.off('room_state');
       // etc...
     };
-  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, accessToken]);
+  }, [setGameState, updateScore, setScore, updatePlayers, setPlayers, addPlayer, updatePlayer, removePlayer, setRoomInfo, setConnected, addShakeEvent, clearShakeHistory, accessToken]);
 
   // 소켓 연결 대기 헬퍼
   const waitForConnection = useCallback(async () => {

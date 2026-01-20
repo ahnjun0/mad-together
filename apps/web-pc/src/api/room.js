@@ -13,7 +13,7 @@ export async function getRoomByCode(code, devToken = null) {
     const headers = {
       'Content-Type': 'application/json',
     };
-    
+
     if (devToken) {
       headers['Authorization'] = `Bearer ${devToken}`;
     }

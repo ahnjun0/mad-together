@@ -242,9 +242,9 @@ export class RoomsService {
 
     if (!player) return;
 
-    await this.prisma.player.delete({
-      where: { id: playerId },
-    });
+    // 호스트는 나갈 수 없음 (일반적으로)
+    // Player 레코드를 삭제하지 않음 (재접속 시 프로필 유지를 위해)
+    console.log(`[RoomsService] Player left room logic (DB record kept): ${playerId}`);
   }
 
   async getPlayersInRoom(roomId: string) {

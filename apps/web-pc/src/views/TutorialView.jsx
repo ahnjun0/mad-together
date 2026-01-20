@@ -32,11 +32,13 @@ export default function TutorialView() {
     };
 
     socket.on('player_updated', handlePlayerUpdated);
+    socket.on('leaders_selected', handleLeadersSelected);
 
     return () => {
       socket.off('player_updated', handlePlayerUpdated);
+      socket.off('leaders_selected', handleLeadersSelected);
     };
-  }, [socket]);
+  }, [socket, startCinematic]);
 
   const handleStartCinematic = () => {
     if (allSensorsChecked && socketConnected) {
