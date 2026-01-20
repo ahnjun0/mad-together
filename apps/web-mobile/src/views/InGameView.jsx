@@ -21,9 +21,7 @@ export default function InGameView() {
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
-
-  // Accel (센서 파워 측정용)
-  const { power, requestPermission: requestAccelPermission } = useAccelSensor();
+  const [castingMaxPower, setCastingMaxPower] = useState(0); // CASTING 상태에서 shake 동안의 최대 power 추적
 
   // 서버에서 받은 센서 확인 상태와 동기화
   useEffect(() => {
@@ -36,10 +34,21 @@ export default function InGameView() {
   }, [players, playerId]);
 
   // 1. 센서 Hooks
-  // Shake (PLAYING + CASTING용)
+  // Accel (센서 파워 측정용 - CASTING에서 사용)
+  const { power: sensorPower, requestPermission: requestAccelPermission } = useAccelSensor();
+
+  // Shake (TUTORIAL + PLAYING용 - 단순 shake 감지)
   const handleShake = useCallback((count) => {
     if (gameState === 'PLAYING') {
+      // PLAYING: shake 횟수만 서버로 전송
       shake(count);
+    } else if (gameState === 'TUTORIAL') {
+      // TUTORIAL: 센서 확인 완료 처리
+      if (!isSensorVerified) {
+        setIsSensorVerified(true);
+        sensorChecked();
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
     } else if (
       gameState === 'CASTING' &&
       isTeamLeader &&
@@ -47,9 +56,9 @@ export default function InGameView() {
       isCastingStarted &&
       !hasCasted
     ) {
-      // 5초 카운트다운 이후 첫 번째 Shake에서, store에 저장된 peak power를 사용해 캐스팅
-      const rawPower = castingPower;
-      const calcPower = Math.min(rawPower ** 2 , 1000);
+      // CASTING: shake 감지 시 현재까지 추적한 최대 power로 캐스팅
+      const rawPower = castingMaxPower;
+      const calcPower = Math.min(rawPower ** 2, 1000);
       const normalizedPower = Math.round(calcPower);
 
       console.log('[Mobile] 🎣 Casting by first shake', {
@@ -70,13 +79,6 @@ export default function InGameView() {
       setTimeout(() => {
         castComplete();
       }, 500);
-    } else if (gameState === 'TUTORIAL') {
-        // 튜토리얼 중 흔들면 센서 확인 완료 처리
-        if (!isSensorVerified) {
-            setIsSensorVerified(true);
-            sensorChecked();
-            if (navigator.vibrate) navigator.vibrate(200);
-        }
     }
   }, [
     gameState,
@@ -87,22 +89,33 @@ export default function InGameView() {
     permission,
     isCastingStarted,
     hasCasted,
+    castingMaxPower,
     castAction,
     castComplete,
   ]);
   
-  // useShake 내부적으로 permission 체크를 하지만, 여기서 permission 상태를 넘겨줌
+  // useShake - 원본 기능만 사용 (shake 감지)
   const { isShaking } = useShake(handleShake, permission);
-
-  // Accel (센서 파워 측정용 - UI 게이지용)
-  const { power: sensorPower, requestPermission: requestAccelPermission } = useAccelSensor();
 
   // Reset cast state when game state changes (e.g., back to lobby or next game)
   useEffect(() => {
       if (gameState !== 'CASTING') {
           setHasCasted(false);
+          setCastingMaxPower(0);
       }
   }, [gameState]);
+
+  // CASTING 상태에서 isShaking 동안 최대 power 추적
+  useEffect(() => {
+    if (gameState === 'CASTING' && isTeamLeader && isCastingStarted && !hasCasted) {
+      if (isShaking) {
+        // shake 중일 때 현재 sensorPower가 최대값보다 크면 업데이트
+        if (sensorPower > castingMaxPower) {
+          setCastingMaxPower(sensorPower);
+        }
+      }
+    }
+  }, [gameState, isTeamLeader, isCastingStarted, hasCasted, isShaking, sensorPower, castingMaxPower]);
 
   // 3. Cinematic Logic
   useEffect(() => {
