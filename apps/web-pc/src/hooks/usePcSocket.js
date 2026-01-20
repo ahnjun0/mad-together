@@ -31,6 +31,9 @@ export function usePcSocket() {
     clearShakeHistory,
     accessToken, // 인증 토큰 (hostDevToken 대신)
     roomInfo,
+    setCastingCountdown,
+    setCastingStarted,
+    setCastingPower,
   } = useGameStore();
 
   useEffect(() => {
@@ -269,6 +272,26 @@ export function usePcSocket() {
       setGameState('CASTING');
     });
 
+    socket.on('casting_countdown', (data) => {
+      console.log('[Socket] ⏰ Casting countdown:', data);
+      if (typeof data?.count === 'number') {
+        setCastingCountdown(data.count);
+      }
+    });
+
+    socket.on('casting_start', () => {
+      console.log('[Socket] 🎣 Casting start signal received');
+      setCastingStarted(true);
+    });
+
+    socket.on('cast_result', (data) => {
+      console.log('[Socket] 🎯 Cast result received:', data);
+      if (!data || !data.team) return;
+      const teamKey = data.team === 'A' || data.team === 'B' ? data.team : null;
+      if (!teamKey) return;
+      setCastingPower(teamKey, typeof data.power === 'number' ? data.power : 0);
+    });
+
     socket.on('team_casted', (data) => {
       console.log('[Socket] 🪝 Team casted:', data);
       // { team: "A" }
@@ -401,6 +424,13 @@ export function usePcSocket() {
     }
   }, []);
 
+  const startCastingTimer = useCallback(() => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] ⏰ Emitting start_casting_timer');
+      socketInstance.emit('start_casting_timer');
+    }
+  }, []);
+
   const startCinematic = useCallback(() => {
     if (socketInstance?.connected) {
       console.log('[Socket] 📡 Emitting start_cinematic');
@@ -421,6 +451,7 @@ export function usePcSocket() {
     startTutorial,
     startCasting,
     startCountdown,
+    startCastingTimer,
     startCinematic,
     waitForConnection,
   };

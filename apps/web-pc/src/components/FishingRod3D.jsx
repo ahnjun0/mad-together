@@ -66,6 +66,7 @@ function FishingLine({ rodTipPosition, bendIntensity }) {
 
 /**
  * FishingRod model component with bone animation
+ * Handles pump and wind motion + bend effect based on shake intensity (PLAYING 전용)
  * Implements realistic Pump & Wind technique:
  * - Set: Base angle position
  * - Pump: Raise rod while pulling fish
@@ -315,7 +316,7 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
 }
 
 /**
- * FishingRod3D - Complete 3D fishing scene for one team
+ * FishingRod3D - Complete 3D fishing scene for one team (PLAYING 전용)
  */
 export function FishingRod3D({ team, className = '' }) {
   const mirrored = team === 'B';

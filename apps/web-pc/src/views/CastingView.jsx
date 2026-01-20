@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import { CastingRod3D } from '../components/CastingRod3D';
+import backgroundOnship from '../assets/background_onship.png';
+import backgroundOcean from '../assets/background-ocean.png';
 
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
-  const { players, roomInfo } = useGameStore();
-  const { socket, startCountdown } = usePcSocket();
+  const { players, roomInfo, castingCountdown, isCastingStarted, castingPower } = useGameStore();
+  const { socket, startCountdown, startCastingTimer } = usePcSocket();
   const [teamACasted, setTeamACasted] = useState(false);
   const [teamBCasted, setTeamBCasted] = useState(false);
   const [castTriggered, setCastTriggered] = useState(false);
+  const [hasCastingTimerStarted, setHasCastingTimerStarted] = useState(false);
 
   // players가 배열인지 객체인지 확인하고 변환
   const teamA_players = Array.isArray(players) 
@@ -50,9 +54,25 @@ export default function CastingView() {
   };
 
   const canStartCountdown = teamACasted && teamBCasted;
+  const hasBothCasted = canStartCountdown;
+
+  // 선박뷰 ↔ 바다뷰 전환:
+  // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후: 선박뷰
+  // - 실제 캐스팅 중(낚싯줄이 날아가는 구간): 바다뷰
+  const backgroundImage =
+    isCastingStarted && !hasBothCasted ? backgroundOcean : backgroundOnship;
+
+  const handleStartCastingTimer = () => {
+    console.log('[CastingView] ⏰ Starting casting timer');
+    startCastingTimer();
+    setHasCastingTimerStarted(true);
+  };
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-8 bg-gradient-to-b from-cyan-200 via-cyan-300 to-blue-400">
+    <div
+      className="w-full h-full flex items-center justify-center p-8 bg-cover bg-center"
+      style={{ backgroundImage: `url(${backgroundImage})` }}
+    >
       <div className="w-full max-w-6xl grid grid-cols-2 gap-6">
         {/* Team A Section */}
         <div className="bg-white/90 rounded-[20px] border-2 border-orange-500 p-6 flex flex-col">
@@ -82,20 +102,9 @@ export default function CastingView() {
             </div>
           )}
 
-          {/* Casting Animation */}
+          {/* Casting Animation / 3D Rod */}
           <div className="relative h-64 bg-cyan-100 rounded-lg overflow-hidden flex items-center justify-center">
-            {teamACasted ? (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                className="text-6xl"
-              >
-                🎣
-              </motion.div>
-            ) : (
-              <div className="text-4xl text-gray-400">대기 중...</div>
-            )}
+            <CastingRod3D team="A" power={castingPower.A || 0} />
           </div>
         </div>
 
@@ -127,26 +136,29 @@ export default function CastingView() {
             </div>
           )}
 
-          {/* Casting Animation */}
+          {/* Casting Animation / 3D Rod */}
           <div className="relative h-64 bg-cyan-100 rounded-lg overflow-hidden flex items-center justify-center">
-            {teamBCasted ? (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                className="text-6xl"
-              >
-                🎣
-              </motion.div>
-            ) : (
-              <div className="text-4xl text-gray-400">대기 중...</div>
-            )}
+            <CastingRod3D team="B" power={castingPower.B || 0} />
           </div>
         </div>
       </div>
 
-      {/* Start Countdown Button (when both teams casted) */}
-      {canStartCountdown && (
+      {/* Start Casting Timer Button (server-synced, 초기 1회) */}
+      {!hasCastingTimerStarted && (
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10">
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={handleStartCastingTimer}
+            className="px-8 py-4 bg-yellow-400 hover:bg-yellow-500 rounded-lg text-black font-bold text-xl transition-all shadow-lg hover:scale-105 font-game"
+          >
+            🎣 Casting 준비 완료
+          </motion.button>
+        </div>
+      )}
+
+      {/* Start Countdown Button (when both teams casted & casting done) */}
+      {canStartCountdown && isCastingStarted && (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
           <motion.button
             initial={{ opacity: 0, y: 20 }}
@@ -167,12 +179,31 @@ export default function CastingView() {
           className="bg-black/70 text-white px-6 py-3 rounded-lg backdrop-blur-sm"
         >
           <p className="text-lg font-semibold font-game">
-            {canStartCountdown 
-              ? '✅ 양 팀 모두 캐스팅 완료!' 
-              : '🎣 팀장이 캐스팅을 완료해주세요'}
+            {!hasCastingTimerStarted &&
+              '🎣 Casting을 준비하세요. 카운트다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!'}
+            {hasCastingTimerStarted && !isCastingStarted &&
+              '⏳ 서버 카운트다운 진행 중입니다...'}
+            {isCastingStarted && !hasBothCasted &&
+              '🚀 팀장이 캐스팅을 진행 중입니다!'}
+            {hasBothCasted && isCastingStarted &&
+              '✅ 양 팀 모두 캐스팅 완료! 게임 시작 카운트다운을 시작하세요'}
           </p>
         </motion.div>
       </div>
+
+      {/* Center Countdown Display */}
+      {typeof castingCountdown === 'number' && (
+        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="px-8 py-4 bg-black/60 rounded-2xl border-2 border-white/40">
+            <p className="text-5xl font-black text-white font-game drop-shadow-lg">
+              {castingCountdown}
+            </p>
+            <p className="text-sm text-white/80 text-center mt-1 font-game">
+              서버 동기화 캐스팅 카운트다운
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
