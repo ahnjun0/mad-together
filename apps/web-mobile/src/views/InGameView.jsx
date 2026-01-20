@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
@@ -22,6 +22,7 @@ export default function InGameView() {
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
   const [isCastingWindow, setIsCastingWindow] = useState(false);
   const [maxCastingPower, setMaxCastingPower] = useState(0);
+  const maxCastingPowerRef = useRef(0); // 최신 파워를 타이머에서 참조하기 위한 ref
 
   // 서버에서 받은 센서 확인 상태와 동기화
   useEffect(() => {
@@ -64,18 +65,16 @@ export default function InGameView() {
       isCastingStarted &&
       !hasCasted
     ) {
-      // 중복 시작 방지
-      if (isCastingWindow) return;
-
       console.log('[Mobile] 🎣 Casting window started');
       setIsCastingWindow(true);
       setMaxCastingPower(0);
+      maxCastingPowerRef.current = 0;
 
       if (navigator.vibrate) navigator.vibrate(180);
 
       const timer = setTimeout(() => {
         // 2초 동안 측정된 최대 파워 기반으로 CalcPower 계산
-        const rawPower = maxCastingPower;
+        const rawPower = maxCastingPowerRef.current;
         const calcPower = Math.min(rawPower / 2, 100);
         const normalizedPower = Math.round(calcPower);
 
@@ -110,8 +109,6 @@ export default function InGameView() {
     permission,
     isCastingStarted,
     hasCasted,
-    isCastingWindow,
-    maxCastingPower,
     castAction,
     castComplete,
   ]);
@@ -121,7 +118,11 @@ export default function InGameView() {
     if (!isCastingWindow) return;
     if (power <= 0) return;
 
-    setMaxCastingPower((prev) => (power > prev ? power : prev));
+    setMaxCastingPower((prev) => {
+      const next = power > prev ? power : prev;
+      maxCastingPowerRef.current = next;
+      return next;
+    });
   }, [power, isCastingWindow]);
 
   // Reset cast state when game state changes (e.g., back to lobby or next game)
