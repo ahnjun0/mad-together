@@ -444,37 +444,37 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const { roomId, playerId } = client;
     if (!roomId || !playerId) return;
 
-    // 팀 선택 시 팀별 최대 인원 확인
-    if (data.team) {
-      const room = await this.roomsService.getRoomById(roomId);
-      const maxPlayersPerTeam = (room as any).maxPlayers || 10;
-      const currentTeamCount = room.players.filter(
-        p => p.team === data.team && p.id !== playerId
-      ).length;
+    try {
+      // room의 maxPlayers를 가져와야 함. 
+      // 최적화를 위해 Redis에 저장된 값을 쓰거나, DB에서 해당 필드만 조회하는 것이 좋음.
+      // 현재는 RedisService에 관련 메서드가 없으므로, RoomsService의 selectTeam 호출 시 
+      // 기본값 10을 사용하거나, 필요하다면 캐싱된 값을 사용하도록 개선 필요.
+      // 여기서는 일단 기본값 10으로 호출하고, 추후 Room 생성 시 Redis에 maxPlayers 저장 권장.
+      
+      const player = await this.roomsService.selectTeam(roomId, playerId, data.team, 10);
+      client.team = player.team || undefined;
 
-      if (currentTeamCount >= maxPlayersPerTeam) {
-        client.emit('team_full', {
+      // 팀 선택 시 리더 여부도 업데이트 (Redis 및 클라이언트 알림)
+      if (player.isLeader) {
+          await this.redis.setTeamLeader(roomId, playerId, true);
+      }
+
+      this.server.to(roomId).emit('player_updated', {
+        playerId,
+        team: player.team,
+        isLeader: player.isLeader, // 리더 여부 추가 전송
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('is full')) {
+         client.emit('team_full', {
           team: data.team,
-          maxPlayers: maxPlayersPerTeam,
-          message: `이 팀은 이미 최대 인원(${maxPlayersPerTeam}명)에 도달했습니다.`,
+          maxPlayers: 10, // Default fallback
+          message: error.message,
         });
-        return;
+      } else {
+        console.error('[Gateway] select_team error:', error);
       }
     }
-
-    const player = await this.roomsService.selectTeam(roomId, playerId, data.team);
-    client.team = player.team || undefined;
-
-    // 팀 선택 시 리더 여부도 업데이트 (Redis 및 클라이언트 알림)
-    if (player.isLeader) {
-        await this.redis.setTeamLeader(roomId, playerId, true);
-    }
-
-    this.server.to(roomId).emit('player_updated', {
-      playerId,
-      team: player.team,
-      isLeader: player.isLeader, // 리더 여부 추가 전송
-    });
   }
 
   @SubscribeMessage('toggle_ready')
