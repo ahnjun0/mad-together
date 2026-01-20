@@ -6,11 +6,22 @@ import { useShake, requestPermission as requestShakePermission } from '../hooks/
 import { useAccelSensor } from '../hooks/useAccelSensor';
 
 export default function InGameView() {
-  const { gameState, myTeam, isTeamLeader, players, playerId } = useMobileStore();
+  const { 
+    gameState, 
+    myTeam, 
+    score, 
+    isTeamLeader, 
+    players, 
+    playerId,
+    castingCountdown,
+    isCastingStarted,
+  } = useMobileStore();
   const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
+  const [isCastingWindow, setIsCastingWindow] = useState(false);
+  const [maxCastingPower, setMaxCastingPower] = useState(0);
 
   // 서버에서 받은 센서 확인 상태와 동기화
   useEffect(() => {
@@ -44,30 +55,81 @@ export default function InGameView() {
   // 동기화를 위해 requestPermission 로직을 공유해야 함.
   const { power, requestPermission: requestAccelPermission } = useAccelSensor();
 
-  // 2. Casting Logic
+  // 2-1. 서버 casting_start 수신 후 2초 측정 윈도우 시작
   useEffect(() => {
-    // Casting 단계이고, 팀장이며, 권한이 있을 때, 아직 캐스팅 안했으면
-    if (gameState === 'CASTING' && isTeamLeader && permission === 'granted' && !hasCasted) {
-      // Threshold 설정 (실제 기기 테스트 필요, 일단 25)
-      if (power > 25) {
+    if (
+      gameState === 'CASTING' &&
+      isTeamLeader &&
+      permission === 'granted' &&
+      isCastingStarted &&
+      !hasCasted
+    ) {
+      // 중복 시작 방지
+      if (isCastingWindow) return;
+
+      console.log('[Mobile] 🎣 Casting window started');
+      setIsCastingWindow(true);
+      setMaxCastingPower(0);
+
+      if (navigator.vibrate) navigator.vibrate(180);
+
+      const timer = setTimeout(() => {
+        // 2초 동안 측정된 최대 파워 기반으로 CalcPower 계산
+        const rawPower = maxCastingPower;
+        const calcPower = Math.min(rawPower / 2, 100);
+        const normalizedPower = Math.round(calcPower);
+
+        console.log('[Mobile] 🎣 Casting window ended', {
+          rawPower,
+          calcPower,
+          normalizedPower,
+        });
+
         setHasCasted(true);
-        castAction(power);
-        
+        setIsCastingWindow(false);
+
+        // 서버로 캐스팅 결과 전송
+        castAction(normalizedPower);
+
         // Haptic feedback
         if (navigator.vibrate) navigator.vibrate(100);
 
-        // Send cast complete shortly after action (simulate swing follow-through)
+        // Follow-through 후 cast_complete 전송
         setTimeout(() => {
-            castComplete();
+          castComplete();
         }, 500);
-      }
+      }, 2000);
+
+      return () => {
+        clearTimeout(timer);
+      };
     }
-  }, [gameState, isTeamLeader, power, permission, castAction, castComplete, hasCasted]);
+  }, [
+    gameState,
+    isTeamLeader,
+    permission,
+    isCastingStarted,
+    hasCasted,
+    isCastingWindow,
+    maxCastingPower,
+    castAction,
+    castComplete,
+  ]);
+
+  // 2-2. 측정 윈도우 동안 최대 가속도 기록
+  useEffect(() => {
+    if (!isCastingWindow) return;
+    if (power <= 0) return;
+
+    setMaxCastingPower((prev) => (power > prev ? power : prev));
+  }, [power, isCastingWindow]);
 
   // Reset cast state when game state changes (e.g., back to lobby or next game)
   useEffect(() => {
       if (gameState !== 'CASTING') {
           setHasCasted(false);
+          setIsCastingWindow(false);
+          setMaxCastingPower(0);
       }
   }, [gameState]);
 
@@ -197,18 +259,25 @@ export default function InGameView() {
                       <div className="space-y-8">
                          <div className="text-8xl mb-4 drop-shadow-2xl">🎣</div>
                          <h2 className="text-4xl font-black text-white leading-tight drop-shadow-lg">
-                            {hasCasted ? "NICE CAST!" : "CAST NOW!"}
+                            {hasCasted ? "NICE CAST!" : isCastingWindow ? "지금 힘껏 던지세요!" : "곧 캐스팅 시작!"}
                          </h2>
+                         <div className="mt-2 text-white/80 font-mono">
+                           {typeof castingCountdown === 'number' && !isCastingWindow && !hasCasted && (
+                             <div className="text-5xl font-black text-yellow-300 drop-shadow-lg">
+                               {castingCountdown}
+                             </div>
+                           )}
+                         </div>
                          {!hasCasted && (
                              <p className="text-yellow-300 font-bold animate-bounce bg-black/30 inline-block px-4 py-2 rounded-lg">
-                                🚀 던지는 시늉을 하세요!
+                                {isCastingWindow ? "폰을 크게 휘둘러 power를 모아요!" : "서버 카운트다운을 기다렸다가 던지세요!"}
                              </p>
                          )}
                          {/* Power Gauge (Debug용) */}
                          <div className="w-full max-w-xs mx-auto h-6 bg-black/40 rounded-full overflow-hidden mt-8 border-2 border-white/10 p-1">
                             <motion.div 
                                className="h-full bg-gradient-to-r from-yellow-400 to-red-500 rounded-full"
-                               style={{ width: `${Math.min(power * 3, 100)}%` }}
+                               style={{ width: `${Math.min((maxCastingPower / 2) || 0, 100)}%` }}
                             />
                          </div>
                       </div>
@@ -217,7 +286,11 @@ export default function InGameView() {
                          <div className="text-6xl mb-4 opacity-50 animate-pulse">👀</div>
                          <div>
                             <p className="text-2xl font-bold text-white mb-2">팀장이 캐스팅 중</p>
-                            <p className="text-sm opacity-70">잠시만 기다려주세요...</p>
+                            <p className="text-sm opacity-70">
+                              {typeof castingCountdown === 'number'
+                                ? `서버 카운트다운 ${castingCountdown}초...`
+                                : '잠시만 기다려주세요...'}
+                            </p>
                          </div>
                       </div>
                    )}
