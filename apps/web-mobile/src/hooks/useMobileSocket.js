@@ -188,8 +188,14 @@ export function useMobileSocket() {
         const authData = await authRes.json();
         accessToken = authData.accessToken; // Server issued JWT Access Token
       } else {
-        // 2. Dev Login: Use temporary token
-        accessToken = `dev-token-${Date.now()}`;
+        // 2. Check if we already have a token (from LoginView)
+        const existingToken = useMobileStore.getState().token;
+        if (existingToken) {
+          accessToken = existingToken;
+        } else {
+          // 3. Dev Login: Use temporary token
+          accessToken = `dev-token-${Date.now()}`;
+        }
       }
 
       // 3. Join Room with Access Token
