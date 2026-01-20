@@ -303,6 +303,32 @@ export function usePcSocket() {
       // 다음 단계 진행 가능 (시각적 큐는 TutorialView에서 처리)
     });
 
+    // 팀장 변경 이벤트 (팀장 퇴장 또는 위임 시)
+    socket.on('leader_updated', (data) => {
+      console.log('[Socket] 👑 Leader updated:', data);
+      const { team, newLeaderId } = data;
+      if (!team || !newLeaderId) return;
+
+      // 해당 팀의 모든 플레이어에서 isLeader를 false로 설정하고,
+      // 새 리더의 isLeader를 true로 설정
+      const currentPlayers = useGameStore.getState().players;
+      const teamKey = team === 'A' ? 'A' : team === 'B' ? 'B' : null;
+      if (!teamKey) return;
+
+      const updatedTeamPlayers = (currentPlayers[teamKey] || []).map(player => ({
+        ...player,
+        isLeader: (player.id === newLeaderId || player.playerId === newLeaderId),
+      }));
+
+      // store 업데이트
+      useGameStore.setState((state) => ({
+        players: {
+          ...state.players,
+          [teamKey]: updatedTeamPlayers,
+        },
+      }));
+    });
+
     // Game flow events
     socket.on('tutorial_started', () => {
       console.log('[Socket] 📚 Tutorial started');

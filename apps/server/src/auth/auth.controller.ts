@@ -83,8 +83,8 @@ export class AuthController {
     // 파일이 있으면 전체 URL 생성, 없으면 undefined
     let profileImageUrl: string | undefined;
     if (file) {
-      const baseUrl = this.configService.get<string>('baseUrl') || '';
-      profileImageUrl = `${baseUrl}/uploads/${file.filename}`;
+      // Relative path for client flexibility (handle baseUrl on client side)
+      profileImageUrl = `/uploads/${file.filename}`;
     }
 
     // 닉네임과 이미지를 업데이트 (닉네임은 필수라고 가정)
