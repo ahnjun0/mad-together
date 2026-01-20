@@ -1,37 +1,104 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF, PerspectiveCamera, Environment } from '@react-three/drei';
+import { useGLTF, PerspectiveCamera, Environment, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { useGameStore, useShakeIntensity } from '../store/useGameStore';
-import rodGlb from '../assets/rod.glb';
+import { useGameStore } from '../store/useGameStore';
+import rodGlb from '../assets/rod2.glb';
 
 // Bone names from the GLB file (no dots in names)
 const BONE_NAMES = ['본', '본001', '본002', '본003', '본004'];
 
+// Angle constants (in radians)
+const DEG_TO_RAD = Math.PI / 180;
+const BASE_ANGLE = 30 * DEG_TO_RAD;     // 준비 자세: 30도
+const PUMP_ANGLE = 5 * DEG_TO_RAD;      // 펌프 최대: 5도
+const PUMP_DELTA = PUMP_ANGLE - BASE_ANGLE; // 펌프 시 추가 각도
+
+// 바다에 고정된 낚싯줄 끝 지점 (물고기가 있는 곳)
+const WATER_TARGET = new THREE.Vector3(0, -1.5, -8);
+
+/**
+ * Fishing Line Component - extends from rod tip to the fixed water target
+ */
+function FishingLine({ rodTipPosition, bendIntensity }) {
+  const lineRef = useRef();
+
+  // Calculate line points from rod tip to fixed water target
+  const points = useMemo(() => {
+    // Rod tip position (actual world position from bone)
+    const tipX = rodTipPosition.x;
+    const tipY = rodTipPosition.y;
+    const tipZ = rodTipPosition.z;
+
+    // Fixed water target (where the fish is)
+    const waterX = WATER_TARGET.x;
+    const waterY = WATER_TARGET.y;
+    const waterZ = WATER_TARGET.z;
+
+    // Create a curved line with tension from fish
+    // 펌프 시 줄이 팽팽해짐 (sag 감소)
+    const midSag = Math.max(0.1, 0.5 - bendIntensity * 0.4);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(tipX, tipY, tipZ),  // Start at rod tip
+      new THREE.Vector3(
+        tipX * 0.5 + waterX * 0.5,
+        Math.min(tipY, waterY) - midSag,  // Sag point
+        tipZ * 0.3 + waterZ * 0.7
+      ),
+      new THREE.Vector3(waterX, waterY, waterZ),  // End at fixed water target
+    ]);
+
+    return curve.getPoints(30);
+  }, [rodTipPosition, bendIntensity]);
+
+  return (
+    <Line
+      ref={lineRef}
+      points={points}
+      color="#3a3a3a"
+      lineWidth={2}
+      transparent
+      opacity={0.9}
+    />
+  );
+}
+
 /**
  * FishingRod model component with bone animation
- * Handles pump and wind motion + bend effect based on shake intensity
+ * Implements realistic Pump & Wind technique:
+ * - Set: Base angle position
+ * - Pump: Raise rod while pulling fish
+ * - Wind: Lower rod while reeling
  */
-function FishingRodModel({ team, mirrored = false }) {
+function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
   const { scene } = useGLTF(rodGlb);
   const groupRef = useRef();
   const bonesRef = useRef([]);
   const skinnedMeshRef = useRef(null);
+  const tipBoneRef = useRef(null);  // Reference to the tip bone for line attachment
   const animationStateRef = useRef({
-    phase: 0, // 0: idle, 1: pumping left, 2: returning from left, 3: pumping right, 4: returning from right
+    phase: 0,
     progress: 0,
-    lastShakeTime: 0,
     isAnimating: false,
-    pumpDirection: 1, // 1: left, -1: right
+    currentShoulder: 1, // 1: left, -1: right
   });
+
+  // Animation output values for fishing line
+  const animValuesRef = useRef({
+    bendIntensity: 0,
+    sideOffset: 0,
+  });
+
+  // Vector for world position calculation
+  const tipWorldPos = useMemo(() => new THREE.Vector3(), []);
 
   // Get shake intensity from store (0-1)
   const shakeHistory = useGameStore((state) => state.shakeHistory[team]);
   const SHAKE_WINDOW_MS = useGameStore((state) => state.SHAKE_WINDOW_MS);
   const MAX_SHAKES_PER_SECOND = useGameStore((state) => state.MAX_SHAKES_PER_SECOND);
 
-  // Calculate intensity
+  // Calculate intensity from shake history
   const intensity = useMemo(() => {
     if (!shakeHistory || shakeHistory.length === 0) return 0;
     const now = Date.now();
@@ -41,32 +108,32 @@ function FishingRodModel({ team, mirrored = false }) {
     return Math.min(shakesPerSecond / MAX_SHAKES_PER_SECOND, 1);
   }, [shakeHistory, SHAKE_WINDOW_MS, MAX_SHAKES_PER_SECOND]);
 
-  // Clone the scene using SkeletonUtils for proper SkinnedMesh cloning
+  // Clone scene properly using SkeletonUtils
   const clonedScene = useMemo(() => {
     const clone = SkeletonUtils.clone(scene);
-
-    // Clone materials to avoid sharing
     clone.traverse((child) => {
       if (child.isMesh) {
         child.material = child.material.clone();
       }
     });
-
     return clone;
   }, [scene]);
 
-  // Find and store bone references from skeleton
+  // Find bones from the cloned scene
   useEffect(() => {
     const bones = [];
     clonedScene.traverse((child) => {
       if (child.isSkinnedMesh) {
         skinnedMeshRef.current = child;
-        // Get bones from skeleton
         if (child.skeleton?.bones) {
           child.skeleton.bones.forEach((bone) => {
             const idx = BONE_NAMES.indexOf(bone.name);
             if (idx !== -1) {
               bones[idx] = bone;
+              // Store tip bone reference (last bone)
+              if (idx === BONE_NAMES.length - 1) {
+                tipBoneRef.current = bone;
+              }
             }
           });
         }
@@ -76,41 +143,47 @@ function FishingRodModel({ team, mirrored = false }) {
   }, [clonedScene]);
 
   // Animation loop
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     const bones = bonesRef.current;
     if (!bones.length) return;
 
     const animState = animationStateRef.current;
-    const now = Date.now();
 
-    // Trigger new pump when shake intensity is high enough
+    // Start animation when intensity is high enough
     if (intensity > 0.05 && !animState.isAnimating) {
       animState.isAnimating = true;
       animState.phase = 1;
       animState.progress = 0;
-      animState.lastShakeTime = now;
+      animState.currentShoulder = 1; // Start with left shoulder
     }
 
-    // Animation speed based on intensity (faster when shaking more)
-    const baseSpeed = 2.0; // Base animation speed
-    const speedMultiplier = 1 + intensity * 3; // 1x to 4x speed
+    // Stop animation when intensity drops
+    if (intensity <= 0.05 && animState.isAnimating && animState.phase === 0) {
+      animState.isAnimating = false;
+    }
+
+    // Animation speed based on intensity
+    const baseSpeed = 0.8;
+    const speedMultiplier = 1 + intensity * 2;
     const animSpeed = baseSpeed * speedMultiplier;
 
-    // Pump and wind animation
+    // Easing function for smooth motion
+    const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
     if (animState.isAnimating) {
       animState.progress += delta * animSpeed;
 
-      // Phase timing (each phase takes 0.5 normalized time)
-      const phaseTime = 0.5;
+      const phaseTime = 0.6; // Slightly longer for more realistic motion
 
       if (animState.progress >= phaseTime) {
         animState.progress = 0;
         animState.phase++;
 
-        // Cycle through phases: 1->2->3->4->1 (if still shaking) or stop
-        if (animState.phase > 4) {
+        // Cycle: pump(1) -> wind(2) -> switch shoulder -> repeat
+        if (animState.phase > 2) {
           if (intensity > 0.05) {
             animState.phase = 1;
+            animState.currentShoulder *= -1; // Switch shoulders
           } else {
             animState.phase = 0;
             animState.isAnimating = false;
@@ -118,71 +191,109 @@ function FishingRodModel({ team, mirrored = false }) {
         }
       }
 
-      // Calculate pump angle based on phase
-      let pumpAngle = 0;
-      let bendIntensity = 0;
       const phaseProgress = animState.progress / phaseTime;
-      const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const shoulder = animState.currentShoulder;
+
+      // Calculate animation values based on phase
+      let pumpProgress = 0;    // 0 = base, 1 = pumped
+      let bendIntensity = 0;
 
       switch (animState.phase) {
-        case 1: // Pumping left (raise rod tip to left shoulder)
-          pumpAngle = easeInOut(phaseProgress) * 0.4; // ~23 degrees
-          bendIntensity = easeInOut(phaseProgress) * 0.8;
+        case 1: // PUMP - 낚싯대 세우기
+          pumpProgress = easeInOut(phaseProgress);
+          bendIntensity = easeInOut(phaseProgress);
           break;
-        case 2: // Returning from left
-          pumpAngle = (1 - easeInOut(phaseProgress)) * 0.4;
-          bendIntensity = (1 - easeInOut(phaseProgress)) * 0.8;
-          break;
-        case 3: // Pumping right (raise rod tip to right shoulder)
-          pumpAngle = -easeInOut(phaseProgress) * 0.4;
-          bendIntensity = easeInOut(phaseProgress) * 0.8;
-          break;
-        case 4: // Returning from right
-          pumpAngle = -(1 - easeInOut(phaseProgress)) * 0.4;
-          bendIntensity = (1 - easeInOut(phaseProgress)) * 0.8;
+        case 2: // WIND - 낚싯대 내리며 릴링
+          pumpProgress = 1 - easeInOut(phaseProgress);
+          bendIntensity = 1 - easeInOut(phaseProgress);
           break;
         default:
-          pumpAngle = 0;
+          pumpProgress = 0;
           bendIntensity = 0;
       }
 
-      // Apply mirror for Team B (right side of screen)
-      if (mirrored) {
-        pumpAngle = -pumpAngle;
+      // Apply mirror for Team B
+      const shoulderDir = mirrored ? -shoulder : shoulder;
+
+      // === Position: Move entire rod to shoulder ===
+      const sideOffset = shoulderDir * pumpProgress * 0.35;
+      const liftHeight = pumpProgress * 0.25;
+
+      if (groupRef.current) {
+        groupRef.current.position.x = sideOffset;
+        groupRef.current.position.y = liftHeight;
       }
 
-      // Apply bone rotations for pump motion
-      // Root bone (본) handles the main pump rotation (around Z axis for left/right)
+      // === Root bone rotation: Pump angle + shoulder tilt ===
       if (bones[0]) {
-        // Pump rotation (left/right shoulder direction)
-        bones[0].rotation.z = pumpAngle;
+        const pumpRotation = -pumpProgress * PUMP_DELTA;
+        const shoulderTilt = shoulderDir * pumpProgress * 0.15;
+        bones[0].rotation.x = pumpRotation;
+        bones[0].rotation.z = shoulderTilt;
       }
 
-      // Apply bend effect to all bones (circular arc toward water)
-      // The bend should make the rod curve like a loaded bow
+      // === 원호 형태로 휘어짐 (각 본이 균등하게 회전) ===
+      const totalArcAngle = pumpProgress * (150 * DEG_TO_RAD);  // 최대 150도 원호
+      const boneCount = bones.length - 1;  // 루트 본 제외
+      const anglePerBone = totalArcAngle / boneCount;
+
       bones.forEach((bone, index) => {
-        if (!bone) return;
-
-        // Skip root bone for bend (already handling pump)
-        if (index === 0) return;
-
-        // Progressive bend - more bend toward the tip
-        const boneWeight = (index / (bones.length - 1)); // 0 to 1
-        const bendAmount = bendIntensity * boneWeight * 0.15; // Max bend per bone
-
-        // Bend toward "water" (forward/down direction)
-        // X rotation bends forward, adjust based on rod orientation
-        bone.rotation.x = bendAmount;
+        if (!bone || index === 0) return;
+        // 음수 = 안쪽(낚싯줄 방향)으로 휘어짐
+        bone.rotation.z = -anglePerBone;
       });
+
+      // Store values for fishing line
+      animValuesRef.current.bendIntensity = bendIntensity;
+      animValuesRef.current.sideOffset = sideOffset;
+
+      // Get actual tip bone world position for fishing line attachment
+      if (onTipPositionUpdate && tipBoneRef.current) {
+        tipBoneRef.current.getWorldPosition(tipWorldPos);
+        onTipPositionUpdate({
+          x: tipWorldPos.x,
+          y: tipWorldPos.y,
+          z: tipWorldPos.z,
+          bendIntensity,
+          sideOffset,
+        });
+      }
     } else {
-      // Idle state - reset rotations smoothly
-      bones.forEach((bone, index) => {
-        if (!bone) return;
+      // Idle - lerp back to rest position
+      if (groupRef.current) {
+        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, 0, delta * 3);
+        groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, 0, delta * 3);
+      }
 
-        // Lerp back to rest position
+      // 루트 본 회전은 0으로 복귀
+      if (bones[0]) {
+        bones[0].rotation.x = THREE.MathUtils.lerp(bones[0].rotation.x, 0, delta * 3);
+        bones[0].rotation.z = THREE.MathUtils.lerp(bones[0].rotation.z, 0, delta * 3);
+      }
+
+      // Idle 시 약간의 휘어짐만 유지
+      const idleAnglePerBone = 5 * DEG_TO_RAD;
+      bones.forEach((bone, index) => {
+        if (!bone || index === 0) return;
+        bone.rotation.z = THREE.MathUtils.lerp(bone.rotation.z, -idleAnglePerBone, delta * 3);
         bone.rotation.x = THREE.MathUtils.lerp(bone.rotation.x, 0, delta * 3);
-        bone.rotation.z = THREE.MathUtils.lerp(bone.rotation.z, 0, delta * 3);
       });
+
+      // Update for idle state
+      animValuesRef.current.bendIntensity = THREE.MathUtils.lerp(animValuesRef.current.bendIntensity, 0.1, delta * 3);
+      animValuesRef.current.sideOffset = THREE.MathUtils.lerp(animValuesRef.current.sideOffset, 0, delta * 3);
+
+      // Get actual tip bone world position for fishing line attachment
+      if (onTipPositionUpdate && tipBoneRef.current) {
+        tipBoneRef.current.getWorldPosition(tipWorldPos);
+        onTipPositionUpdate({
+          x: tipWorldPos.x,
+          y: tipWorldPos.y,
+          z: tipWorldPos.z,
+          bendIntensity: animValuesRef.current.bendIntensity,
+          sideOffset: animValuesRef.current.sideOffset,
+        });
+      }
     }
 
     // Update skeleton after bone changes
@@ -193,12 +304,11 @@ function FishingRodModel({ team, mirrored = false }) {
 
   return (
     <group ref={groupRef}>
-      {/* Position rod at chest height, centered */}
       <primitive
         object={clonedScene}
-        scale={0.5}
-        position={[0, -1.2, 0]}
-        rotation={[0.1, mirrored ? Math.PI : 0, 0]} // Slight tilt, mirror for Team B
+        scale={0.8}
+        position={[0, -0.8, 0]}
+        rotation={[-BASE_ANGLE, mirrored ? Math.PI : 0, 0]}
       />
     </group>
   );
@@ -209,15 +319,22 @@ function FishingRodModel({ team, mirrored = false }) {
  */
 export function FishingRod3D({ team, className = '' }) {
   const mirrored = team === 'B';
+  const [tipPosition, setTipPosition] = useState({
+    x: 0,
+    y: 0.8,
+    z: -0.5,
+    bendIntensity: 0,
+    sideOffset: 0,
+  });
 
   return (
     <div className={`w-full h-full ${className}`}>
       <Canvas shadows>
-        {/* Camera at chest height, looking at the rod */}
+        {/* Camera - Game View settings */}
         <PerspectiveCamera
           makeDefault
-          position={[0, 0.8, 2.5]}
-          fov={60}
+          position={[0, 0.4, 1.2]}
+          fov={75}
           near={0.1}
           far={100}
         />
@@ -237,9 +354,19 @@ export function FishingRod3D({ team, className = '' }) {
         <Environment preset="sunset" />
 
         {/* The fishing rod */}
-        <FishingRodModel team={team} mirrored={mirrored} />
+        <FishingRodModel
+          team={team}
+          mirrored={mirrored}
+          onTipPositionUpdate={setTipPosition}
+        />
 
-        {/* Optional: Ocean/sky background gradient via fog */}
+        {/* Fishing Line - from rod tip to water target */}
+        <FishingLine
+          rodTipPosition={tipPosition}
+          bendIntensity={tipPosition.bendIntensity}
+        />
+
+        {/* Background fog */}
         <fog attach="fog" args={['#87CEEB', 10, 50]} />
       </Canvas>
     </div>

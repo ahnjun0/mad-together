@@ -4,7 +4,7 @@ import { useMobileSocket } from '../hooks/useMobileSocket';
 const GAME_STATES = ['WAITING', 'TUTORIAL', 'PLAYING', 'FINISHED'];
 
 export default function DebugPanel() {
-  const { gameState, setGameState, score, updateScore } = useMobileStore();
+  const { gameState, setGameState } = useMobileStore();
   const { shake } = useMobileSocket();
 
   return (
@@ -12,7 +12,6 @@ export default function DebugPanel() {
       <div className="text-xs font-bold mb-2">Debug Panel</div>
       <div className="space-y-1 text-xs">
         <div>State: <span className="font-mono">{gameState}</span></div>
-        <div>Score: A={score.A} B={score.B}</div>
       </div>
       <div className="space-y-1 pt-2 border-t border-white/20">
         <div className="text-xs font-semibold mb-1">Change State:</div>

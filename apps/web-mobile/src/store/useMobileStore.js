@@ -5,9 +5,12 @@ export const useMobileStore = create(
   immer((set) => ({
     // State
     gameState: 'WAITING', // WAITING, CINEMATIC, TUTORIAL, CASTING, PLAYING, FINISHED
-    score: {
+    // 최종 점수 (게임 종료 시 수신, ResultView용)
+    finalScore: {
       A: 0,
       B: 0,
+      winnerTeam: null,
+      mvp: null,
     },
     myTeam: null, // 'A' | 'B'
     playerId: null,
@@ -71,9 +74,10 @@ export const useMobileStore = create(
         draft.pendingRoomCode = code;
       }),
 
-    updateScore: (teamScores) =>
+    // 최종 점수 설정 (게임 종료 시)
+    setFinalScore: (scoreData) =>
       set((draft) => {
-        draft.score = { ...teamScores };
+        draft.finalScore = { ...scoreData };
       }),
 
     setConnected: (connected) =>
