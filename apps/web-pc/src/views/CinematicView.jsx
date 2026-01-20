@@ -13,9 +13,24 @@ export default function CinematicView() {
   const { startCasting, isConnected: socketConnected } = usePcSocket();
 
   useEffect(() => {
-    // Video 로드 시도
+    // Video 로드 및 재생 시도
     if (videoRef.current) {
       videoRef.current.load();
+      // 사용자 인터랙션 후 오디오 재생을 위해 play() 호출
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            // 재생 성공 시 음소거 해제
+            videoRef.current.muted = false;
+            console.log('[CinematicView] 🎬 Video playing with audio');
+          })
+          .catch((error) => {
+            console.warn('[CinematicView] ⚠️ Video play failed:', error);
+            // 브라우저 정책으로 인해 자동 재생이 차단된 경우
+            // 사용자가 수동으로 재생해야 할 수 있음
+          });
+      }
     }
   }, []);
 
@@ -56,77 +71,89 @@ export default function CinematicView() {
   }, [videoEnded, isSkipped, socketConnected]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-black relative overflow-hidden">
-      {/* Video Player or Fallback */}
+    <div className="w-screen h-screen overflow-hidden relative">
+      {/* Background Layer: Video를 Background로 배치 */}
       {!videoError ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          onEnded={handleVideoEnd}
-          onError={handleVideoError}
-          className="w-full h-full object-cover"
-        >
-          <source src={cinematicVideo} type="video/mp4" />
-        </video>
+        <div className="fixed inset-0 w-full h-full z-0">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={false}
+            onEnded={handleVideoEnd}
+            onError={handleVideoError}
+            className="w-full h-full object-cover"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+          >
+            <source src={cinematicVideo} type="video/mp4" />
+          </video>
+        </div>
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-cyan-200 via-cyan-300 to-blue-400">
-          <div className="text-center text-white">
-            <p className="text-4xl mb-6">🚢</p>
-            <p className="text-2xl font-bold mb-4">출항하는 배</p>
-            <p className="text-gray-300 mb-8">(비디오 파일을 찾을 수 없습니다)</p>
-            <GlossyButton onClick={handleSkip} variant="primary">
-              건너뛰기
-            </GlossyButton>
+        <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-cyan-200 via-cyan-300 to-blue-400">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center text-white">
+              <p className="text-4xl mb-6">🚢</p>
+              <p className="text-2xl font-bold mb-4">출항하는 배</p>
+              <p className="text-gray-300 mb-8">(비디오 파일을 찾을 수 없습니다)</p>
+              <GlossyButton onClick={handleSkip} variant="primary">
+                건너뛰기
+              </GlossyButton>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Skip Button (우측 상단, 높은 z-index) */}
-      {!videoError && !videoEnded && (
-        <button
-          onClick={handleSkip}
-          className="
-            absolute top-4 right-4 z-50
-            px-4 py-2 rounded-lg
-            bg-black/50 hover:bg-black/70
-            text-white font-semibold text-sm
-            transition-all backdrop-blur-sm
-            border-2 border-white/30
-          "
-        >
-          Skip
-        </button>
-      )}
+      {/* Content Layer (Safe Zone): UI 컨테이너는 중앙에 배치 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center">
+        <div className="w-full max-w-[1600px] h-full relative">
 
-      {/* Glassmorphism Overlay (게임 규칙 텍스트) */}
-      {!videoError && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
-          <div className="w-full max-w-2xl px-6">
-            <GlassPanel className="py-6 px-8 text-center bg-white/25 pointer-events-auto">
-              <div className="space-y-4">
-                <p className="text-xl md:text-2xl font-fredoka text-white leading-relaxed drop-shadow-lg">
-                  카운트 다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!
-                </p>
-                <p className="text-lg md:text-xl font-fredoka text-white/90 leading-relaxed drop-shadow-md">
-                  이후 HIT! 신호가 오면 팀원이 다함께 휴대폰을 흔들어 물고기를 낚아주세요!
-                </p>
-              </div>
-            </GlassPanel>
-          </div>
-        </div>
-      )}
+          {/* Skip Button (우측 상단, 높은 z-index) */}
+          {!videoError && !videoEnded && (
+            <button
+              onClick={handleSkip}
+              className="
+                fixed top-4 right-4 z-50
+                px-4 py-2 rounded-lg
+                bg-black/50 hover:bg-black/70
+                text-white font-semibold text-sm
+                transition-all backdrop-blur-sm
+                border-2 border-white/30
+              "
+            >
+              Skip
+            </button>
+          )}
 
-      {/* 비디오 종료 후 전환 안내 (선택사항) */}
-      {videoEnded && !isSkipped && (
-        <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
-          <GlassPanel className="py-6 px-8 text-center bg-white/30">
-            <p className="text-2xl font-fredoka text-white mb-4">게임을 시작합니다!</p>
-            <p className="text-lg font-fredoka text-white/80">잠시만 기다려주세요...</p>
-          </GlassPanel>
+          {/* Glassmorphism Overlay (게임 규칙 텍스트) - 가시성 개선: 검정색 테두리와 텍스트 */}
+          {!videoError && (
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none w-full max-w-2xl px-6">
+              <GlassPanel border="black" className="py-6 px-8 text-center bg-white/95 pointer-events-auto shadow-2xl">
+                <div className="space-y-4">
+                  <p className="text-xl md:text-2xl font-game text-black leading-relaxed drop-shadow-lg">
+                    카운트 다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!
+                  </p>
+                  <p className="text-lg md:text-xl font-game text-black/90 leading-relaxed drop-shadow-md">
+                    이후 HIT! 신호가 오면 팀원이 다함께 휴대폰을 흔들어 물고기를 낚아주세요!
+                  </p>
+                </div>
+              </GlassPanel>
+            </div>
+          )}
+
+          {/* 비디오 종료 후 전환 안내 (선택사항) */}
+          {videoEnded && !isSkipped && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
+              <GlassPanel border="black" className="py-6 px-8 text-center bg-white/90">
+                <p className="text-2xl font-game text-black mb-4">게임을 시작합니다!</p>
+                <p className="text-lg font-game text-black/80">잠시만 기다려주세요...</p>
+              </GlassPanel>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

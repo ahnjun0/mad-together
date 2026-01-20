@@ -32,17 +32,31 @@ export default function TutorialView() {
     };
 
     socket.on('player_updated', handlePlayerUpdated);
-    socket.on('leaders_selected', handleLeadersSelected);
 
     return () => {
       socket.off('player_updated', handlePlayerUpdated);
-      socket.off('leaders_selected', handleLeadersSelected);
     };
-  }, [socket, startCinematic]);
+  }, [socket]);
 
-  const handleStartCinematic = () => {
+  const handleStartCinematic = async () => {
     if (allSensorsChecked && socketConnected) {
       console.log('[TutorialView] 🎬 All sensors checked, starting cinematic...');
+      
+      // Audio Context를 resume하여 오디오 재생 가능하도록 함
+      // (브라우저의 autoplay 정책 대응)
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const audioContext = new AudioContext();
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+            console.log('[TutorialView] 🔊 Audio Context resumed');
+          }
+        }
+      } catch (error) {
+        console.warn('[TutorialView] ⚠️ Audio Context resume failed:', error);
+      }
+      
       startCinematic();
     }
   };

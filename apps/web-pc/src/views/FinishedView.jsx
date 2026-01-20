@@ -38,15 +38,15 @@ export default function FinishedView() {
 
           <div className="space-y-3 mb-6">
             <div className="flex justify-between items-center p-3 bg-orange-100 rounded-lg">
-              <span className="font-semibold text-gray-800">팀 점수</span>
+              <span className="font-semibold text-gray-800 font-game">팀 점수</span>
               <span className="text-2xl font-bold text-orange-600">{score.A}pt</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-100 rounded-lg">
-              <span className="font-semibold text-gray-800">홍길동</span>
+              <span className="font-semibold text-gray-800 font-game">홍길동</span>
               <span className="font-bold text-orange-600">100pt</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-100 rounded-lg">
-              <span className="font-semibold text-gray-800">양서영</span>
+              <span className="font-semibold text-gray-800 font-game">양서영</span>
               <span className="font-bold text-orange-600">35pt</span>
             </div>
           </div>
@@ -82,11 +82,11 @@ export default function FinishedView() {
 
           <div className="space-y-3 mb-6">
             <div className="flex justify-between items-center p-3 bg-cyan-100 rounded-lg">
-              <span className="font-semibold text-gray-800">팀 점수</span>
+              <span className="font-semibold text-gray-800 font-game">팀 점수</span>
               <span className="text-2xl font-bold text-cyan-600">{score.B}pt</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-cyan-100 rounded-lg">
-              <span className="font-semibold text-gray-800">김사랑</span>
+              <span className="font-semibold text-gray-800 font-game">김사랑</span>
               <span className="font-bold text-cyan-600">120pt</span>
             </div>
           </div>

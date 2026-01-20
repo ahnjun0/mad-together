@@ -5,6 +5,7 @@ export default function GlassPanel({ children, className = '', border = 'white' 
   // 테두리 색상 매핑
   const borderColors = {
     white: 'border-white/50',
+    black: 'border-black/80',
     'team-a': 'border-team-a', // tailwind.config.js에 설정된 색상
     'team-b': 'border-team-b',
   };
