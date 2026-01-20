@@ -175,11 +175,11 @@ export function CastingRod3D({ team, className = '', power = 0 }) {
   return (
     <div className={`w-full h-full ${className}`}>
       <Canvas shadows>
-        {/* Camera at chest height, looking at the rod */}
+        {/* Camera - 살짝 더 가깝게 당겨서 몰입감 향상 */}
         <PerspectiveCamera
           makeDefault
-          position={[0, 0.8, 2.5]}
-          fov={60}
+          position={[0, 0.4, 1.5]}
+          fov={70}
           near={0.1}
           far={100}
         />

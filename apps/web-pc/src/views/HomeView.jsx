@@ -91,7 +91,7 @@ export default function HomeView() {
           <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-full max-w-xl px-4">
         <GlassPanel className="pt-10 pb-10 px-6 md:px-10 flex flex-col gap-8 items-stretch">
           {/* 타이틀 */}
-          <h1 className="text-4xl md:text-5xl font-fredoka text-center text-[#1e3a8a] text-outline tracking-wide mb-2">
+          <h1 className="text-4xl md:text-5xl font-game text-center text-[#1e3a8a] text-outline tracking-wide mb-2">
             Game Settings
           </h1>
 

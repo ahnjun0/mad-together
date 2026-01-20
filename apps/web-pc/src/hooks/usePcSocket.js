@@ -300,7 +300,13 @@ export function usePcSocket() {
 
     socket.on('casting_start', () => {
       console.log('[Socket] 🎣 Casting start signal received');
+      // casting_start 시점에서 로컬 카운트다운을 0으로 표시
+      setCastingCountdown(0);
       setCastingStarted(true);
+      // 1초 후 카운트다운 패널 숨기기
+      setTimeout(() => {
+        useGameStore.getState().setCastingCountdown(null);
+      }, 1000);
     });
 
     socket.on('cast_result', (data) => {

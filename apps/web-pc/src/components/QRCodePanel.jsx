@@ -21,11 +21,11 @@ export default function QRCodePanel({ qrCodeUrl, roomCode }) {
 
       {/* 방 코드 텍스트 */}
       <div className="text-center">
-        <p className="text-white/90 font-fredoka text-xl mb-1 drop-shadow-md">
+        <p className="text-white/90 font-game text-xl mb-1 drop-shadow-md">
           Entry Code
         </p>
         <h1 className="
-          text-5xl md:text-7xl font-fredoka text-white 
+          text-5xl md:text-7xl font-game text-white 
           tracking-[0.1em] text-outline drop-shadow-xl
         ">
           {roomCode}
