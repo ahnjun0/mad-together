@@ -63,7 +63,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       let user;
 
       // 2. 개발용 토큰 체크 로직 추가
-      if (isDevAuthEnabled && token.startsWith(devAuthToken)) {
+      // JWT(ey...)가 아닌 경우에만 dev token 체크를 수행하여 불필요한 로그 방지
+      if (isDevAuthEnabled && !token.startsWith('ey') && token.startsWith(devAuthToken)) {
         console.log(`🚀 [Dev Mode] WebSocket Bypass for token: ${token}`);
         user = await this.authService.getOrCreateDevUser(token);
       } else {
