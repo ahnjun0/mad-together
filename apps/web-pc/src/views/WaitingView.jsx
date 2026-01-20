@@ -7,6 +7,8 @@ import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
 import bgShip from '../assets/background-ship.jpg';
 import bgOnship from '../assets/background_onship.png';
+import backgroundOcean from '../assets/background-ocean.png';
+import cinematicVideo from '../assets/cinematic.mp4';
 
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
@@ -14,11 +16,49 @@ export default function WaitingView() {
   const { startTutorial, joinRoom, isConnected: socketConnected } = usePcSocket();
   
   // ⚡️ [Preloading Logic]
-  // 이 컴포넌트가 마운트되면, 다음 단계 이미지를 브라우저가 미리 다운받게 함
+  // WaitingView에서 이후 단계에 필요한 모든 주요 이미지/영상 자원을 미리 로딩
   useEffect(() => {
-    const img = new Image();
-    img.src = bgOnship;
-    // img.onload = () => console.log('Next background loaded'); // 디버깅용
+    const imageAssets = [
+      bgShip,          // 현재 대기 화면 배경
+      bgOnship,        // Tutorial / Casting 선박 뷰
+      backgroundOcean, // Casting / Playing 바다 뷰
+    ].filter(Boolean);
+
+    const videoAssets = [
+      cinematicVideo,  // CinematicView 영상
+    ].filter(Boolean);
+
+    // 이미지 프리로드
+    const imageElements = imageAssets.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+
+    // 비디오 프리로드
+    const videoElements = videoAssets.map((src) => {
+      const video = document.createElement('video');
+      video.src = src;
+      video.preload = 'auto';
+      // load()는 브라우저가 허용하는 범위 내에서 메타데이터/일부 버퍼를 미리 가져옴
+      try {
+        video.load();
+      } catch (e) {
+        console.warn('[WaitingView] ⚠️ Video preload failed:', e);
+      }
+      return video;
+    });
+
+    // 클린업: 메모리 누수 방지를 위해 참조 해제
+    return () => {
+      imageElements.forEach((img) => {
+        img.src = '';
+      });
+      videoElements.forEach((video) => {
+        video.removeAttribute('src');
+        video.load();
+      });
+    };
   }, []);
 
   // 연결 상태 동기화 및 방 재입장 처리

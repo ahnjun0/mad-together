@@ -1,7 +1,8 @@
 // apps/web-pc/src/components/PlayerCard.jsx
-import React from 'react';
+import React, { useState } from 'react';
 
-export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sensorChecked }) {
+export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sensorChecked, profileImage }) {
+  const [imageError, setImageError] = useState(false);
   // 팀에 따른 텍스트/아이콘 색상 결정
   const colorClass = teamColor === 'team-a' ? 'text-team-a' : 'text-team-b';
   const bgClass = teamColor === 'team-a' ? 'bg-orange-100' : 'bg-cyan-100';
@@ -20,13 +21,27 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
       ${sensorChecked ? 'animate-pulse' : ''}
     `}>
       <div className="flex items-center gap-3">
-        {/* 아바타 (단순 원형 아이콘) */}
-        <div className={`
+        {/* 아바타 (프로필 이미지 또는 이니셜) */}
+        <div
+          className={`
           flex items-center justify-center 
           w-10 h-10 rounded-full font-black text-xl 
+          overflow-hidden
           ${bgClass} ${colorClass}
-        `}>
-          P
+        `}
+        >
+          {profileImage && !imageError ? (
+            <img
+              src={profileImage}
+              alt={nickname}
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <span>
+              {nickname?.charAt(0)?.toUpperCase() || 'P'}
+            </span>
+          )}
         </div>
         
         {/* 닉네임 + 리더 표시 */}

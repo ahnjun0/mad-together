@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useEffect, Suspense } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { FishingRod3D } from '../components/FishingRod3D';
+import backgroundOcean from '../assets/background-ocean.png';
 
 // PC (Host) only view - Split screen with two fishing rods
 export default function PlayingView() {
@@ -17,7 +18,10 @@ export default function PlayingView() {
   }, [score, fishPosition]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-gradient-to-b from-sky-400 to-blue-600">
+    <div
+      className="w-full h-full flex flex-col bg-gradient-to-b from-sky-400 to-blue-600 bg-cover bg-center"
+      style={{ backgroundImage: `url(${backgroundOcean})` }}
+    >
       {/* Gauge Bar at Top */}
       <div className="p-4">
         <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-4">
