@@ -149,7 +149,7 @@ export default function WaitingView() {
           <div className="fixed left-1/2 top-20 -translate-x-1/2 z-30">
             <h1
               className="
-                text-5xl md:text-6xl font-fredoka text-[#1e3a8a]
+                text-5xl md:text-6xl font-game text-[#1e3a8a]
                 text-outline tracking-[0.18em] drop-shadow-xl whitespace-nowrap
               "
             >
@@ -168,7 +168,7 @@ export default function WaitingView() {
           {/* WAITING 패널: GameStart 버튼 위로 일부 여백을 두고 배치 */}
           <div className="fixed left-1/2 bottom-40 -translate-x-1/2 z-30 w-full max-w-xl px-4">
             <GlassPanel className="py-4 text-center bg-white/35">
-              <p className="text-2xl md:text-3xl font-fredoka text-white tracking-[0.2em]">
+              <p className="text-2xl md:text-3xl font-game text-white tracking-[0.2em]">
                 WAITING...
               </p>
               <p className="mt-2 text-xs md:text-sm font-game text-white/80">
@@ -212,7 +212,7 @@ export default function WaitingView() {
           <button
             type="button"
             className="
-              absolute bottom-4 right-4 text-white/80 text-2xl font-fredoka
+              absolute bottom-4 right-4 text-white/80 text-2xl font-game
               hover:text-white drop-shadow-lg z-50
             "
             onClick={() => {

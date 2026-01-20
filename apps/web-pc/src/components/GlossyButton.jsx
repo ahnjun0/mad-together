@@ -26,7 +26,7 @@ export default function GlossyButton({
       disabled={disabled}
       className={`
         w-full py-4 md:py-6 rounded-[25px] 
-        font-fredoka font-black text-2xl md:text-3xl text-white 
+        font-game font-black text-2xl md:text-3xl text-white 
         border-[4px] border-white/40 
         transition-all duration-150
         ${!disabled && 'hover:-translate-y-1 active:translate-y-[4px]'} 

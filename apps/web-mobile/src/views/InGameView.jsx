@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
@@ -20,9 +20,6 @@ export default function InGameView() {
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
   const [hasCasted, setHasCasted] = useState(false); // Prevent multiple casts
-  const [isCastingWindow, setIsCastingWindow] = useState(false);
-  const [maxCastingPower, setMaxCastingPower] = useState(0);
-  const maxCastingPowerRef = useRef(0); // 최신 파워를 타이머에서 참조하기 위한 ref
 
   // 서버에서 받은 센서 확인 상태와 동기화
   useEffect(() => {
@@ -35,10 +32,40 @@ export default function InGameView() {
   }, [players, playerId]);
 
   // 1. 센서 Hooks
-  // Shake (Playing용)
+  // Shake (PLAYING + CASTING용)
   const handleShake = useCallback((count) => {
     if (gameState === 'PLAYING') {
       shake(count);
+    } else if (
+      gameState === 'CASTING' &&
+      isTeamLeader &&
+      permission === 'granted' &&
+      isCastingStarted &&
+      !hasCasted
+    ) {
+      // 5초 카운트다운 이후 첫 번째 Shake에서 power를 측정하여 캐스팅
+      const rawPower = power;
+      const calcPower = Math.min(rawPower / 2, 100);
+      const normalizedPower = Math.round(calcPower);
+
+      console.log('[Mobile] 🎣 Casting by first shake', {
+        rawPower,
+        calcPower,
+        normalizedPower,
+      });
+
+      setHasCasted(true);
+
+      // 서버로 캐스팅 결과 전송
+      castAction(normalizedPower);
+
+      // Haptic feedback
+      if (navigator.vibrate) navigator.vibrate(100);
+
+      // Follow-through 후 cast_complete 전송
+      setTimeout(() => {
+        castComplete();
+      }, 500);
     } else if (gameState === 'TUTORIAL') {
         // 튜토리얼 중 흔들면 센서 확인 완료 처리
         if (!isSensorVerified) {
@@ -47,90 +74,30 @@ export default function InGameView() {
             if (navigator.vibrate) navigator.vibrate(200);
         }
     }
-  }, [gameState, shake, sensorChecked, isSensorVerified]);
-  
-  // useShake 내부적으로 permission 체크를 하지만, 여기서 permission 상태를 넘겨줌
-  const { isShaking } = useShake(handleShake, permission);
-
-  // Accel (Casting용) - 이 훅은 내부적으로 permission state를 가짐. 
-  // 동기화를 위해 requestPermission 로직을 공유해야 함.
-  const { power, requestPermission: requestAccelPermission } = useAccelSensor();
-
-  // 2-1. 서버 casting_start 수신 후 2초 측정 윈도우 시작
-  useEffect(() => {
-    if (
-      gameState === 'CASTING' &&
-      isTeamLeader &&
-      permission === 'granted' &&
-      isCastingStarted &&
-      !hasCasted
-    ) {
-      console.log('[Mobile] 🎣 Casting window started');
-      setIsCastingWindow(true);
-      setMaxCastingPower(0);
-      maxCastingPowerRef.current = 0;
-
-      if (navigator.vibrate) navigator.vibrate(180);
-
-      const timer = setTimeout(() => {
-        // 2초 동안 측정된 최대 파워 기반으로 CalcPower 계산
-        const rawPower = maxCastingPowerRef.current;
-        const calcPower = Math.min(rawPower / 2, 100);
-        const normalizedPower = Math.round(calcPower);
-
-        console.log('[Mobile] 🎣 Casting window ended', {
-          rawPower,
-          calcPower,
-          normalizedPower,
-        });
-
-        setHasCasted(true);
-        setIsCastingWindow(false);
-
-        // 서버로 캐스팅 결과 전송
-        castAction(normalizedPower);
-
-        // Haptic feedback
-        if (navigator.vibrate) navigator.vibrate(100);
-
-        // Follow-through 후 cast_complete 전송
-        setTimeout(() => {
-          castComplete();
-        }, 500);
-      }, 2000);
-
-      return () => {
-        clearTimeout(timer);
-      };
-    }
   }, [
     gameState,
+    shake,
+    sensorChecked,
+    isSensorVerified,
     isTeamLeader,
     permission,
     isCastingStarted,
     hasCasted,
+    power,
     castAction,
     castComplete,
   ]);
+  
+  // useShake 내부적으로 permission 체크를 하지만, 여기서 permission 상태를 넘겨줌
+  const { isShaking } = useShake(handleShake, permission);
 
-  // 2-2. 측정 윈도우 동안 최대 가속도 기록
-  useEffect(() => {
-    if (!isCastingWindow) return;
-    if (power <= 0) return;
-
-    setMaxCastingPower((prev) => {
-      const next = power > prev ? power : prev;
-      maxCastingPowerRef.current = next;
-      return next;
-    });
-  }, [power, isCastingWindow]);
+  // Accel (센서 파워 측정용)
+  const { power, requestPermission: requestAccelPermission } = useAccelSensor();
 
   // Reset cast state when game state changes (e.g., back to lobby or next game)
   useEffect(() => {
       if (gameState !== 'CASTING') {
           setHasCasted(false);
-          setIsCastingWindow(false);
-          setMaxCastingPower(0);
       }
   }, [gameState]);
 
@@ -181,6 +148,8 @@ export default function InGameView() {
   // 공통 배경 (팀 색상 등)
   const bgColor = myTeam === 'A' ? 'bg-orange-900' : myTeam === 'B' ? 'bg-cyan-900' : 'bg-slate-900';
   const activeColor = myTeam === 'A' ? 'bg-orange-500' : 'bg-cyan-500';
+
+  const isCastingActive = isCastingStarted && !hasCasted;
 
   return (
     <div className={`w-full h-[100dvh] flex flex-col relative overflow-hidden transition-colors duration-200 ${isShaking ? activeColor : bgColor}`} style={{ touchAction: 'none' }}>
@@ -260,10 +229,10 @@ export default function InGameView() {
                       <div className="space-y-8">
                          <div className="text-8xl mb-4 drop-shadow-2xl">🎣</div>
                          <h2 className="text-4xl font-black text-white leading-tight drop-shadow-lg">
-                            {hasCasted ? "NICE CAST!" : isCastingWindow ? "지금 힘껏 던지세요!" : "곧 캐스팅 시작!"}
+                            {hasCasted ? "NICE CAST!" : isCastingActive ? "지금 힘껏 던지세요!" : "곧 캐스팅 시작!"}
                          </h2>
                          <div className="mt-2 text-white/80 font-mono">
-                           {typeof castingCountdown === 'number' && !isCastingWindow && !hasCasted && (
+                           {typeof castingCountdown === 'number' && !isCastingActive && !hasCasted && (
                              <div className="text-5xl font-black text-yellow-300 drop-shadow-lg">
                                {castingCountdown}
                              </div>
@@ -271,14 +240,14 @@ export default function InGameView() {
                          </div>
                          {!hasCasted && (
                              <p className="text-yellow-300 font-bold animate-bounce bg-black/30 inline-block px-4 py-2 rounded-lg">
-                                {isCastingWindow ? "폰을 크게 휘둘러 power를 모아요!" : "서버 카운트다운을 기다렸다가 던지세요!"}
+                                {isCastingActive ? "폰을 크게 휘둘러 power를 모아요!" : "서버 카운트다운을 기다렸다가 던지세요!"}
                              </p>
                          )}
                          {/* Power Gauge (Debug용) */}
                          <div className="w-full max-w-xs mx-auto h-6 bg-black/40 rounded-full overflow-hidden mt-8 border-2 border-white/10 p-1">
                             <motion.div 
                                className="h-full bg-gradient-to-r from-yellow-400 to-red-500 rounded-full"
-                               style={{ width: `${Math.min((maxCastingPower / 2) || 0, 100)}%` }}
+                               style={{ width: `${Math.min((power / 2) || 0, 100)}%` }}
                             />
                          </div>
                       </div>

@@ -74,23 +74,24 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
 
     if (animState.isCasting) {
       const normalized = animState.activePower / 100;
-      const totalDuration = 1.2; // ~1.2초
+      // 전체 캐스팅 모션을 약 3초로 늘려 좀 더 드라마틱하게 연출
+      const totalDuration = 3.0; // ~3초
       animState.progress = Math.min(animState.progress + delta, totalDuration);
 
       const t = animState.progress / totalDuration;
 
-      // 0~0.4: 백스윙, 0.4~0.8: 포워드 스윙, 0.8~1: 감쇠
+      // 0.0~0.35: 백스윙, 0.35~0.75: 포워드 스윙, 0.75~1.0: 감쇠
       let pumpAngle = 0;
       let bendIntensity = 0;
       const easeInOut = (v) =>
         v < 0.5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2;
 
-      if (t < 0.4) {
-        const phaseT = t / 0.4;
+      if (t < 0.35) {
+        const phaseT = t / 0.35;
         pumpAngle = -easeInOut(phaseT) * 0.5 * normalized;
         bendIntensity = easeInOut(phaseT) * 0.5 * normalized;
-      } else if (t < 0.8) {
-        const phaseT = (t - 0.4) / 0.4;
+      } else if (t < 0.75) {
+        const phaseT = (t - 0.35) / 0.4;
         pumpAngle = THREE.MathUtils.lerp(
           -0.5 * normalized,
           0.6 * normalized,
@@ -102,7 +103,7 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
           easeInOut(phaseT),
         );
       } else {
-        const phaseT = (t - 0.8) / 0.2;
+        const phaseT = (t - 0.75) / 0.25;
         pumpAngle = THREE.MathUtils.lerp(
           0.6 * normalized,
           0,
@@ -174,11 +175,11 @@ export function CastingRod3D({ team, className = '', power = 0 }) {
   return (
     <div className={`w-full h-full ${className}`}>
       <Canvas shadows>
-        {/* Camera at chest height, looking at the rod */}
+        {/* Camera - 살짝 더 가깝게 당겨서 몰입감 향상 */}
         <PerspectiveCamera
           makeDefault
-          position={[0, 0.8, 2.5]}
-          fov={60}
+          position={[0, 0.4, 1.5]}
+          fov={70}
           near={0.1}
           far={100}
         />

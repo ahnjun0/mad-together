@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
 import { CastingRod3D } from '../components/CastingRod3D';
+import PlayerAvatar from '../components/PlayerAvatar';
 import backgroundOnship from '../assets/background_onship.png';
 import backgroundOcean from '../assets/background-ocean.png';
 
@@ -16,7 +17,7 @@ export default function CastingView() {
   const [hasCastingTimerStarted, setHasCastingTimerStarted] = useState(false);
 
   // players가 배열인지 객체인지 확인하고 변환
-  const teamA_players = Array.isArray(players) 
+  const teamA_players = Array.isArray(players)
     ? players.filter(p => p.team === 'A')
     : (players.A || []);
   const teamB_players = Array.isArray(players)
@@ -70,10 +71,11 @@ export default function CastingView() {
 
   return (
     <div
-      className="w-full h-full flex items-center justify-center p-8 bg-cover bg-center"
+      className="w-full h-full relative flex items-center justify-center p-8 bg-cover bg-center"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="w-full max-w-6xl grid grid-cols-2 gap-6">
+      {/* 중앙 정보 패널 (팀명 / 리더 상태만 간단히) */}
+      <div className="w-full max-w-6xl grid grid-cols-2 gap-6 pointer-events-none">
         {/* Team A Section */}
         <div className="bg-white/90 rounded-[20px] border-2 border-orange-500 p-6 flex flex-col">
           <div className="text-center mb-4">
@@ -83,29 +85,12 @@ export default function CastingView() {
             <div className="text-orange-500 text-4xl mb-4">🔥</div>
           </div>
 
-          {/* Leader Highlight */}
+          {/* Leader Highlight (텍스트만 간단히 유지) */}
           {leaderA && (
-            <div className={`p-4 rounded-lg mb-4 transition-all ${
-              teamACasted 
-                ? 'bg-green-100 border-2 border-green-500 ring-4 ring-green-300' 
-                : 'bg-orange-100 border-2 border-orange-300'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">👑</span>
-                <div>
-                  <p className="font-bold text-gray-800">{leaderA.nickname || 'Unknown'}</p>
-                  <p className="text-xs text-gray-600 font-game">
-                    {teamACasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <p className="mt-4 text-sm text-gray-700 font-game text-center">
+              {teamACasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
+            </p>
           )}
-
-          {/* Casting Animation / 3D Rod */}
-          <div className="relative h-64 bg-cyan-100 rounded-lg overflow-hidden flex items-center justify-center">
-            <CastingRod3D team="A" power={castingPower.A || 0} />
-          </div>
         </div>
 
         {/* Team B Section */}
@@ -117,29 +102,22 @@ export default function CastingView() {
             <div className="text-cyan-500 text-4xl mb-4">🌊</div>
           </div>
 
-          {/* Leader Highlight */}
+          {/* Leader Highlight (텍스트만 간단히 유지) */}
           {leaderB && (
-            <div className={`p-4 rounded-lg mb-4 transition-all ${
-              teamBCasted 
-                ? 'bg-green-100 border-2 border-green-500 ring-4 ring-green-300' 
-                : 'bg-cyan-100 border-2 border-cyan-300'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">👑</span>
-                <div>
-                  <p className="font-bold text-gray-800">{leaderB.nickname || 'Unknown'}</p>
-                  <p className="text-xs text-gray-600 font-game">
-                    {teamBCasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <p className="mt-4 text-sm text-gray-700 font-game text-center">
+              {teamBCasted ? '✓ 캐스팅 완료!' : '캐스팅 대기 중...'}
+            </p>
           )}
+        </div>
+      </div>
 
-          {/* Casting Animation / 3D Rod */}
-          <div className="relative h-64 bg-cyan-100 rounded-lg overflow-hidden flex items-center justify-center">
-            <CastingRod3D team="B" power={castingPower.B || 0} />
-          </div>
+      {/* 바다 위에 직접 보이는 3D 낚싯대 - 화면 전체를 사용하는 레이어 */}
+      <div className="absolute inset-x-0 bottom-0 top-24 flex justify-between pointer-events-none px-16">
+        <div className="w-1/2 h-full">
+          <CastingRod3D team="A" power={castingPower.A || 0} className="w-full h-full" />
+        </div>
+        <div className="w-1/2 h-full">
+          <CastingRod3D team="B" power={castingPower.B || 0} className="w-full h-full" />
         </div>
       </div>
 
@@ -205,7 +183,7 @@ export default function CastingView() {
         </div>
       )}
 
-      {/* 하단 좌측: 게임 종료 버튼 */}
+      {/* 하단 좌측: 게임 종료 버튼
       <button
         type="button"
         className="
@@ -220,7 +198,29 @@ export default function CastingView() {
         }}
       >
         게임 종료
-      </button>
+      </button> */}
+      {/* 하단 좌/우 팀장 아바타 - 화면 확대/축소와 무관하게 고정 위치 */}
+      {leaderA && (
+        <div className="absolute bottom-6 left-8 z-20 pointer-events-none">
+          <PlayerAvatar
+            nickname={leaderA.nickname || 'Unknown'}
+            sensorChecked={leaderA.sensorChecked || false}
+            teamColor="team-a"
+            profileImage={leaderA.profileImage}
+          />
+        </div>
+      )}
+
+      {leaderB && (
+        <div className="absolute bottom-6 right-8 z-20 pointer-events-none">
+          <PlayerAvatar
+            nickname={leaderB.nickname || 'Unknown'}
+            sensorChecked={leaderB.sensorChecked || false}
+            teamColor="team-b"
+            profileImage={leaderB.profileImage}
+          />
+        </div>
+      )}
     </div>
   );
 }

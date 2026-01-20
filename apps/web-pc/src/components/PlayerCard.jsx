@@ -46,7 +46,7 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
         
         {/* 닉네임 + 리더 표시 */}
         <div className="flex flex-col">
-          <span className="font-fredoka text-lg text-gray-800 leading-none">
+          <span className="font-game text-lg text-gray-800 leading-none">
             {nickname}
           </span>
           {isLeader && (
