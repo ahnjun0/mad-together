@@ -6,11 +6,20 @@ import QRCodePanel from '../components/QRCodePanel';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
 import bgShip from '../assets/background-ship.jpg';
+import bgOnship from '../assets/background_onship.png';
 
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
   const { roomInfo, players } = useGameStore();
   const { startTutorial, joinRoom, isConnected: socketConnected } = usePcSocket();
+  
+  // ⚡️ [Preloading Logic]
+  // 이 컴포넌트가 마운트되면, 다음 단계 이미지를 브라우저가 미리 다운받게 함
+  useEffect(() => {
+    const img = new Image();
+    img.src = bgOnship;
+    // img.onload = () => console.log('Next background loaded'); // 디버깅용
+  }, []);
 
   // 연결 상태 동기화 및 방 재입장 처리
   useEffect(() => {

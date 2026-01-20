@@ -22,6 +22,9 @@ export const useMobileStore = create(
     roomId: null,
     pendingRoomCode: null, // For flow: Login -> Profile -> Join
     players: [],
+    // CASTING phase shared state
+    castingCountdown: null, // 서버 캐스팅 카운트다운 (5~1)
+    isCastingStarted: false, // 서버에서 casting_start 수신 여부
 
     // Actions
     setGameState: (state) =>
@@ -83,6 +86,16 @@ export const useMobileStore = create(
     setConnected: (connected) =>
       set((draft) => {
         draft.isConnected = connected;
+      }),
+
+    setCastingCountdown: (count) =>
+      set((draft) => {
+        draft.castingCountdown = count;
+      }),
+
+    setIsCastingStarted: (started) =>
+      set((draft) => {
+        draft.isCastingStarted = started;
       }),
   }))
 );
