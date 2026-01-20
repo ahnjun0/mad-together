@@ -39,6 +39,16 @@ export const useGameStore = create(
       unassigned: [], // 팀이 할당되지 않은 플레이어
     },
 
+    // Shake tracking for fishing rod animation
+    shakeHistory: {
+      A: [], // Array of timestamps (ms)
+      B: [],
+    },
+    // Time window for calculating shake intensity (ms)
+    SHAKE_WINDOW_MS: 2000,
+    // Max shakes per second for normalization
+    MAX_SHAKES_PER_SECOND: 10,
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -65,6 +75,24 @@ export const useGameStore = create(
     resetScore: () =>
       set((draft) => {
         draft.score = { A: 0, B: 0 };
+      }),
+
+    // Shake tracking actions
+    addShakeEvent: (team) =>
+      set((draft) => {
+        if (!draft.shakeHistory[team]) return;
+        const now = Date.now();
+        draft.shakeHistory[team].push(now);
+        // Clean up old events outside the window
+        const cutoff = now - draft.SHAKE_WINDOW_MS;
+        draft.shakeHistory[team] = draft.shakeHistory[team].filter(
+          (t) => t >= cutoff
+        );
+      }),
+
+    clearShakeHistory: () =>
+      set((draft) => {
+        draft.shakeHistory = { A: [], B: [] };
       }),
 
     // DevTools actions for testing
@@ -328,3 +356,34 @@ export const useGameStore = create(
       }),
   }))
 );
+
+// Selector for calculating shake intensity (0-1)
+// Returns a value between 0 and 1 based on recent shake frequency
+export const getShakeIntensity = (state, team) => {
+  const history = state.shakeHistory[team];
+  if (!history || history.length === 0) return 0;
+
+  const now = Date.now();
+  const cutoff = now - state.SHAKE_WINDOW_MS;
+  const recentShakes = history.filter((t) => t >= cutoff);
+
+  // Calculate shakes per second
+  const shakesPerSecond = recentShakes.length / (state.SHAKE_WINDOW_MS / 1000);
+
+  // Normalize to 0-1 range
+  return Math.min(shakesPerSecond / state.MAX_SHAKES_PER_SECOND, 1);
+};
+
+// Hook for using shake intensity with auto-update
+export const useShakeIntensity = (team) => {
+  const shakeHistory = useGameStore((state) => state.shakeHistory[team]);
+  const SHAKE_WINDOW_MS = useGameStore((state) => state.SHAKE_WINDOW_MS);
+  const MAX_SHAKES_PER_SECOND = useGameStore((state) => state.MAX_SHAKES_PER_SECOND);
+
+  const now = Date.now();
+  const cutoff = now - SHAKE_WINDOW_MS;
+  const recentShakes = shakeHistory?.filter((t) => t >= cutoff) || [];
+  const shakesPerSecond = recentShakes.length / (SHAKE_WINDOW_MS / 1000);
+
+  return Math.min(shakesPerSecond / MAX_SHAKES_PER_SECOND, 1);
+};

@@ -27,6 +27,7 @@ export default function DevTools() {
     toggleReadyAll,
     clearPlayers,
     resetScore,
+    addShakeEvent,
   } = useGameStore();
 
   // Mock player ID counter (for local store bots - deprecated)
@@ -69,12 +70,14 @@ export default function DevTools() {
     // 실제 서버로 보내려면 Tab 4의 봇을 사용하거나, 봇 소켓이 있으면 그것을 사용
     console.log('[DevTools] 📳 Fake Shake (A) - 로컬 store만 업데이트 (서버 통신 없음)');
     updateScore('A', 10);
+    addShakeEvent('A'); // Trigger fishing rod animation
   };
 
   const handleFakeShakeB = () => {
     // 로컬 store만 조작 (UI 테스트용)
     console.log('[DevTools] 📳 Fake Shake (B) - 로컬 store만 업데이트 (서버 통신 없음)');
     updateScore('B', 10);
+    addShakeEvent('B'); // Trigger fishing rod animation
   };
 
   // 실제 서버로 shake 이벤트 전송 (봇 소켓 사용)

@@ -10,4 +10,5 @@ export default defineConfig({
     strictPort: true,
     host: true
   },
+  assetsInclude: ['**/*.glb', '**/*.gltf'], // Handle 3D model files as assets
 })
