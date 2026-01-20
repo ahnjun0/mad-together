@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
-import TeamPanel from '../components/TeamPanel';
+import SplitScreen from '../components/SplitScreen';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
-import bgOnship from '../assets/background_onship.png';
+import PlayerAvatar from '../components/PlayerAvatar';
 
 // PC (Host) only view - Sensor Check Phase
 export default function TutorialView() {
@@ -44,13 +44,68 @@ export default function TutorialView() {
     }
   };
 
+  // Team A 컨텐츠
+  const teamAContent = (
+    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+      {/* 팀 헤더 */}
+      <h2 className="text-5xl md:text-6xl font-game text-team-a mb-8 text-center drop-shadow-lg">
+        {roomInfo.teamAName || 'TEAM A'}
+      </h2>
+
+      {/* 플레이어 아바타 리스트 */}
+      <div className="flex flex-wrap gap-6 justify-center items-start">
+        {teamA_players.length > 0 ? (
+          teamA_players.map((player) => (
+            <PlayerAvatar
+              key={player.id || player.playerId}
+              nickname={player.nickname}
+              sensorChecked={player.sensorChecked}
+              teamColor="team-a"
+              profileImage={player.profileImage}
+            />
+          ))
+        ) : (
+          <div className="text-white/60 font-game text-lg">
+            대기 중...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Team B 컨텐츠
+  const teamBContent = (
+    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+      {/* 팀 헤더 */}
+      <h2 className="text-5xl md:text-6xl font-game text-team-b mb-8 text-center drop-shadow-lg">
+        {roomInfo.teamBName || 'TEAM B'}
+      </h2>
+
+      {/* 플레이어 아바타 리스트 */}
+      <div className="flex flex-wrap gap-6 justify-center items-start">
+        {teamB_players.length > 0 ? (
+          teamB_players.map((player) => (
+            <PlayerAvatar
+              key={player.id || player.playerId}
+              nickname={player.nickname}
+              sensorChecked={player.sensorChecked}
+              teamColor="team-b"
+              profileImage={player.profileImage}
+            />
+          ))
+        ) : (
+          <div className="text-white/60 font-game text-lg">
+            대기 중...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div
-      className="w-full h-full flex flex-col items-center justify-center p-4 md:p-8 bg-cover bg-center relative"
-      style={{ backgroundImage: `url(${bgOnship})` }}
-    >
+    <div className="w-full h-full relative flex flex-col">
       {/* 상단 연결 상태 배지 */}
-      <div className="fixed top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50">
         <div
           className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
             socketConnected
@@ -67,51 +122,31 @@ export default function TutorialView() {
         </div>
       </div>
 
-      {/* 메인 레이아웃: 좌우 팀 패널 */}
-      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Team A (왼쪽) */}
-        <TeamPanel
-          teamName={roomInfo.teamAName || 'TEAM A'}
-          players={teamA_players}
-          color="team-a"
-        />
-
-        {/* Team B (오른쪽) */}
-        <TeamPanel
-          teamName={roomInfo.teamBName || 'TEAM B'}
-          players={teamB_players}
-          color="team-b"
-        />
+      {/* SplitScreen: 좌우 팀 패널 */}
+      <div className="flex-1">
+        <SplitScreen leftContent={teamAContent} rightContent={teamBContent} />
       </div>
 
-      {/* 하단 중앙: Instruction Banner + Action Button */}
-      <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-        {/* Instruction Message Bar */}
-        <GlassPanel className="py-4 px-6 text-center bg-white/35">
-          <p className="text-lg md:text-xl font-fredoka text-white leading-relaxed">
-            휴대폰을 흔들어 센서를 확인해주세요.
-          </p>
-          <p className="text-sm md:text-base font-fredoka text-white/90 mt-1">
-            아이폰은 권한 허용이 필요합니다.
-          </p>
-        </GlassPanel>
-
-        {/* Host Action Button */}
-        <div className="w-full">
-          {allSensorsChecked ? (
-            <GlossyButton
-              onClick={handleStartCinematic}
-              disabled={!socketConnected}
-              variant="primary"
-            >
-              Start Cinematic
-            </GlossyButton>
-          ) : (
-            <GlossyButton disabled={true} variant="disabled">
-              Waiting for sensors... ({allPlayers.filter((p) => p.sensorChecked).length}/{allPlayers.length})
-            </GlossyButton>
-          )}
-        </div>
+      {/* 하단 중앙: Instruction Panel or Start Button */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4">
+        {allSensorsChecked ? (
+          <GlossyButton
+            onClick={handleStartCinematic}
+            disabled={!socketConnected}
+            variant="primary"
+          >
+            게임 시작
+          </GlossyButton>
+        ) : (
+          <GlassPanel className="py-4 px-6 text-center bg-white/35">
+            <p className="text-lg md:text-xl font-game text-white leading-relaxed">
+              휴대폰을 흔들어 센서를 확인하세요
+            </p>
+            <p className="text-sm md:text-base font-game text-white/90 mt-1">
+              아이폰은 권한 허용이 필요합니다.
+            </p>
+          </GlassPanel>
+        )}
       </div>
     </div>
   );

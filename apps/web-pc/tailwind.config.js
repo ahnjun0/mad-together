@@ -15,9 +15,9 @@ export default {
         'team-b-dark': '#0099CC',
       },
       fontFamily: {
-        // Design Spec 1. Global Styles
-        // 'font-fredoka' 클래스로 사용 가능
-        fredoka: ['"Fredoka One"', 'cursive'], 
+        // 커스텀 폰트 이름 'game' 정의
+        // 1순위: Lilita One (영어), 2순위: Jua (한글), 3순위: 시스템 폰트
+        game: ['"Lilita One"', '"Jua"', 'sans-serif'],
       },
       boxShadow: {
         // Design Spec 2. Button Styles (커스텀 그림자 유틸리티)
