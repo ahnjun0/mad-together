@@ -1,7 +1,7 @@
 // apps/web-pc/src/components/PlayerAvatar.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { API_BASE_URL } from '../../api/room';
+import { API_BASE_URL } from '../api/room';
 
 export default function PlayerAvatar({
   nickname,

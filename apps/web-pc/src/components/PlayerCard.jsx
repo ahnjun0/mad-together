@@ -1,6 +1,6 @@
 // apps/web-pc/src/components/PlayerCard.jsx
 import React, { useState } from 'react';
-import { API_BASE_URL } from '../../api/room';
+import { API_BASE_URL } from '../api/room';
 
 export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sensorChecked, profileImage }) {
   const [imageError, setImageError] = useState(false);
