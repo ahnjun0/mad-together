@@ -31,6 +31,11 @@ export default function TutorialView() {
       // store가 자동으로 업데이트되므로 리렌더링됨
     };
 
+    const handleLeadersSelected = (data) => {
+      console.log('[TutorialView] 👑 Leaders selected:', data);
+      // usePcSocket에서 이미 처리하므로 여기서는 로그만 출력
+    };
+
     socket.on('player_updated', handlePlayerUpdated);
     socket.on('leaders_selected', handleLeadersSelected);
 
@@ -38,7 +43,7 @@ export default function TutorialView() {
       socket.off('player_updated', handlePlayerUpdated);
       socket.off('leaders_selected', handleLeadersSelected);
     };
-  }, [socket, startCinematic]);
+  }, [socket]);
 
   const handleStartCinematic = () => {
     if (allSensorsChecked && socketConnected) {
