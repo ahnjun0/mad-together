@@ -77,14 +77,24 @@ export class RedisService implements OnModuleDestroy {
     return keys.map(k => k.split(':').pop()).filter((k): k is string => k !== undefined);
   }
 
-  // 목표 점수 설정
-  async setGoalScore(roomId: string, score: number) {
-    await this.client.hset(this.roomKey(roomId), 'goalScore', score.toString());
+  // 목표 점수 설정 (팀별)
+  async setGoalScore(roomId: string, teamA: number, teamB: number) {
+    await this.client.hset(
+      this.roomKey(roomId), 
+      'goalScore:A', teamA.toString(),
+      'goalScore:B', teamB.toString()
+    );
   }
 
-  async getGoalScore(roomId: string): Promise<number> {
-    const score = await this.client.hget(this.roomKey(roomId), 'goalScore');
-    return parseInt(score || '1000', 10);
+  async getGoalScore(roomId: string): Promise<{ A: number; B: number }> {
+    const [scoreA, scoreB] = await Promise.all([
+      this.client.hget(this.roomKey(roomId), 'goalScore:A'),
+      this.client.hget(this.roomKey(roomId), 'goalScore:B'),
+    ]);
+    return {
+      A: parseInt(scoreA || '100', 10),
+      B: parseInt(scoreB || '100', 10),
+    };
   }
 
   // 팀 점수 관리

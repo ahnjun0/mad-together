@@ -154,23 +154,22 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     try {
       const room = await this.roomsService.getRoomById(roomId);
 
-      // 이미 FINISHED 상태면 스킵
-      if (room.status === RoomStatus.FINISHED) {
-        return;
+      // FINISHED 상태가 아니면 상태 변경
+      if (room.status !== RoomStatus.FINISHED) {
+        await this.roomsService.updateRoomStatus(roomId, RoomStatus.FINISHED);
       }
-
-      // 상태를 FINISHED로 변경
-      await this.roomsService.updateRoomStatus(roomId, RoomStatus.FINISHED);
 
       // 모든 클라이언트에 게임 종료 알림
       this.server.to(roomId).emit('game_terminated', {
         reason,
         message: reason === 'host_timeout'
           ? '호스트 연결이 끊어져 게임이 종료되었습니다.'
+          : reason === 'host_new_game'
+          ? '새 게임을 시작합니다.'
           : '호스트가 게임을 종료했습니다.',
       });
 
-      // 관련 상태 정리
+      // 관련 상태 정리 (FINISHED 상태여도 항상 실행)
       this.gameStartTime.delete(roomId);
       this.gamePlayerIds.delete(roomId);
       this.castingWindowOpen.delete(roomId);
@@ -180,7 +179,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       this.castingPower.delete(`${roomId}:A`);
       this.castingPower.delete(`${roomId}:B`);
 
-      console.log(`[GamesGateway] 🏁 Game terminated: ${roomId}, reason: ${reason}`);
+      // Redis 정리
+      await this.redis.cleanupRoom(roomId);
+
+      console.log(`[GamesGateway] 🏁 Game terminated and cleaned up: ${roomId}, reason: ${reason}`);
     } catch (error) {
       console.error(`[GamesGateway] ❌ terminateGame error:`, error);
     }
@@ -742,11 +744,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     // 모든 플레이어 점수 초기화
     await this.redis.resetAllPlayerScores(roomId, playerIds);
 
-    // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 100)
+    // 팀 인원 수 기반 goalScore 설정 (팀별 인원 * 100)
     const teamACount = room.players.filter(p => p.team === Team.A).length;
     const teamBCount = room.players.filter(p => p.team === Team.B).length;
-    const goalScore = teamACount * 100;
-    await this.redis.setGoalScore(roomId, goalScore);
+    const goalScoreA = teamACount * 100;
+    const goalScoreB = teamBCount * 100;
+    await this.redis.setGoalScore(roomId, goalScoreA, goalScoreB);
 
     // ⚠️ CRITICAL: startGame()을 먼저 호출 (내부에서 resetTeamScores() 실행)
     // 그 후 보너스 점수를 적용해야 리셋되지 않음!

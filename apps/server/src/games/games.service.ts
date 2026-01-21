@@ -107,15 +107,15 @@ export class GamesService {
     };
   }
 
-  // 목표 점수 도달 확인
+  // 목표 점수 도달 확인 (팀별 목표)
   async checkWinCondition(roomId: string): Promise<Team | null> {
-    const [scores, targetScore] = await Promise.all([
+    const [scores, targetScores] = await Promise.all([
       this.redis.getTeamScores(roomId),
       this.redis.getGoalScore(roomId),
     ]);
 
-    if (scores.A >= targetScore) return Team.A;
-    if (scores.B >= targetScore) return Team.B;
+    if (scores.A >= targetScores.A) return Team.A;
+    if (scores.B >= targetScores.B) return Team.B;
     return null;
   }
 }
