@@ -742,10 +742,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     // 모든 플레이어 점수 초기화
     await this.redis.resetAllPlayerScores(roomId, playerIds);
 
-    // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 50)
+    // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 100)
     const teamACount = room.players.filter(p => p.team === Team.A).length;
     const teamBCount = room.players.filter(p => p.team === Team.B).length;
-    const goalScore = teamACount * 50;
+    const goalScore = teamACount * 100;
     await this.redis.setGoalScore(roomId, goalScore);
 
     // 캐스팅 승자에게 보너스 점수 적용 (팀 점수 + 개인 점수)
