@@ -795,9 +795,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const playerIds = this.gamePlayerIds.get(roomId) || [];
     const result = await this.gamesService.endGame(roomId, startedAt);
 
+    console.log('[Gateway] 🏁 endGame - playerIds from gameStart:', playerIds);
+
     // 개인 점수도 포함
     const playerScores = await this.redis.getAllPlayerScores(roomId, playerIds);
     const room = await this.roomsService.getRoomById(roomId);
+
+    console.log('[Gateway] 🏁 endGame - playerScores from Redis:', Array.from(playerScores.entries()));
+    console.log('[Gateway] 🏁 endGame - room.players:', room.players.map(p => ({ id: p.id, nickname: (p as any).nickname })));
 
     // MVP 계산 (가장 높은 점수)
     let mvpPlayerId: string | null = null;
@@ -815,16 +820,24 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const ITEM_COUNT = 10; // 프론트엔드 아이템 목록 개수와 일치해야 함
     const caughtItemIndex = Math.floor(Math.random() * ITEM_COUNT);
 
+    const playerScoresArray = room.players.map(p => {
+      const playerScore = playerScores.get(p.id) || 0;
+      console.log(`[Gateway] 🏁 Player ${p.id} (${(p as any).nickname}): Redis score = ${playerScore}`);
+      return {
+        playerId: p.id,
+        nickname: (p as any).nickname,
+        team: p.team,
+        score: playerScore,
+      };
+    });
+
+    console.log('[Gateway] 🏁 endGame - Final playerScoresArray:', playerScoresArray);
+
     this.server.to(roomId).emit('game_ended', {
       winnerTeam,
       teamScores: result.scores,
       caughtItemIndex, // 낚은 아이템 인덱스
-      playerScores: room.players.map(p => ({
-        playerId: p.id,
-        nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임
-        team: p.team,
-        score: playerScores.get(p.id) || 0,
-      })),
+      playerScores: playerScoresArray,
       mvp: mvpPlayer ? {
         playerId: mvpPlayer.id,
         nickname: (mvpPlayer as any).nickname, // Player 테이블의 고정된 닉네임
