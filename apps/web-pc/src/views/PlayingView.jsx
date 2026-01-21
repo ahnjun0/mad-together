@@ -83,6 +83,7 @@ export default function PlayingView() {
   const {
     score,
     roomInfo,
+    players,
     gameEndingState,
     setGameEndingPhase,
     closeGameEndingModal,
