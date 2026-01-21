@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
 
 export default function ResultView() {
-  const { finalScore, myTeam } = useMobileStore();
+  const { finalScore, myTeam, teamAName, teamBName } = useMobileStore();
   const winner = finalScore.winnerTeam;
   const isWinner = winner === myTeam;
 
@@ -34,7 +34,7 @@ export default function ResultView() {
             }`}
           >
             <div className="flex justify-between items-center">
-              <span className="text-white font-bold text-xl">Team A</span>
+              <span className="text-white font-bold text-xl">{teamAName}</span>
               <span className="text-white font-bold text-2xl">{finalScore.A}pt</span>
             </div>
           </motion.div>
@@ -48,7 +48,7 @@ export default function ResultView() {
             }`}
           >
             <div className="flex justify-between items-center">
-              <span className="text-white font-bold text-xl">Team B</span>
+              <span className="text-white font-bold text-xl">{teamBName}</span>
               <span className="text-white font-bold text-2xl">{finalScore.B}pt</span>
             </div>
           </motion.div>

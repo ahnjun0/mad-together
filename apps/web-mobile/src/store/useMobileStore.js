@@ -22,6 +22,9 @@ export const useMobileStore = create(
     roomId: null,
     pendingRoomCode: null, // For flow: Login -> Profile -> Join
     players: [],
+    // 팀 이름 (서버에서 수신)
+    teamAName: 'A팀',
+    teamBName: 'B팀',
     // CASTING phase shared state
     castingCountdown: null, // 서버 캐스팅 카운트다운 (5~1)
     isCastingStarted: false, // 서버에서 casting_start 수신 여부
@@ -96,6 +99,12 @@ export const useMobileStore = create(
     setIsCastingStarted: (started) =>
       set((draft) => {
         draft.isCastingStarted = started;
+      }),
+
+    setTeamNames: (teamAName, teamBName) =>
+      set((draft) => {
+        draft.teamAName = teamAName || 'A팀';
+        draft.teamBName = teamBName || 'B팀';
       }),
   }))
 );

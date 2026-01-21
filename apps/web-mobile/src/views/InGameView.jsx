@@ -6,17 +6,22 @@ import { useShake, requestPermission as requestShakePermission } from '../hooks/
 import { useAccelSensor } from '../hooks/useAccelSensor';
 
 export default function InGameView() {
-  const { 
-    gameState, 
-    myTeam, 
-    score, 
-    isTeamLeader, 
-    players, 
+  const {
+    gameState,
+    myTeam,
+    score,
+    isTeamLeader,
+    players,
     playerId,
     castingCountdown,
     isCastingStarted,
     castingPower,
+    teamAName,
+    teamBName,
   } = useMobileStore();
+
+  // 내 팀 이름 가져오기
+  const myTeamName = myTeam === 'A' ? teamAName : myTeam === 'B' ? teamBName : '';
   const { shake, castAction, castComplete, sensorChecked } = useMobileSocket();
   const [permission, setPermission] = useState('prompt'); // prompt, granted, denied
   const [isSensorVerified, setIsSensorVerified] = useState(false); // For local UI feedback in Tutorial
@@ -174,7 +179,7 @@ export default function InGameView() {
        <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-10 pointer-events-none safe-area-top">
           <div className="flex flex-col">
              <span className={`font-black text-2xl drop-shadow-md tracking-tighter ${myTeam === 'A' ? 'text-orange-100' : 'text-cyan-100'}`}>
-                TEAM {myTeam}
+                {myTeamName}
              </span>
              {isTeamLeader && <span className="text-yellow-400 text-xs font-black bg-black/50 px-2 py-0.5 rounded backdrop-blur-md self-start mt-1">👑 LEADER</span>}
           </div>

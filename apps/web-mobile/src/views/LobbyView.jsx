@@ -3,7 +3,7 @@ import { useMobileStore } from '../store/useMobileStore';
 import { useMobileSocket } from '../hooks/useMobileSocket';
 
 export default function LobbyView() {
-  const { myTeam, setTeam, isTeamLeader, gameState, players, playerId } = useMobileStore();
+  const { myTeam, setTeam, isTeamLeader, gameState, players, playerId, teamAName, teamBName } = useMobileStore();
   const { selectTeam, toggleReady, sensorChecked } = useMobileSocket();
   const [isReady, setIsReady] = useState(false);
   const [isSensorChecked, setIsSensorChecked] = useState(false);
@@ -53,7 +53,7 @@ export default function LobbyView() {
                 : 'bg-gray-800 hover:bg-gray-700 active:scale-95 border-2 border-gray-700 opacity-80'
             }`}
           >
-            <span className="relative z-10">TEAM A 🔥</span>
+            <span className="relative z-10">{teamAName} 🔥</span>
             {myTeam === 'A' && (
                 <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
             )}
@@ -67,7 +67,7 @@ export default function LobbyView() {
                 : 'bg-gray-800 hover:bg-gray-700 active:scale-95 border-2 border-gray-700 opacity-80'
             }`}
           >
-            <span className="relative z-10">TEAM B 🌊</span>
+            <span className="relative z-10">{teamBName} 🌊</span>
             {myTeam === 'B' && (
                 <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
             )}
