@@ -5,7 +5,7 @@ import { usePcSocket } from '../hooks/usePcSocket';
 import { useAudioPreload, useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
-import bgShip from '../assets/background-ship.jpg';
+import bgShip from '../assets/background_deck.png';
 import backgroundMusicDeck from '../assets/sounds/background_music_deck.mp3';
 import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 

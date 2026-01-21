@@ -93,9 +93,15 @@ export default function PlayingView() {
   // 게임 진행 중에는 실시간 score_update 이벤트로 충분함
   // 배경 비디오에 음악이 포함되어 있어 별도 배경음악 제거
 
-  // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
-  const totalScore = score.A + score.B;
-  const fishPosition = totalScore > 0 ? score.A / totalScore : 0.5;
+  // Calculate goal scores for each team (팀별 인원 * 100점)
+  const teamACount = (players.A || []).length;
+  const teamBCount = (players.B || []).length;
+  const goalScoreA = teamACount * 100;
+  const goalScoreB = teamBCount * 100;
+  
+  // Calculate progress percentage for each team (목표 대비 현재 점수 비율)
+  const progressA = goalScoreA > 0 ? Math.min((score.A / goalScoreA) * 100, 100) : 0;
+  const progressB = goalScoreB > 0 ? Math.min((score.B / goalScoreB) * 100, 100) : 0;
 
   // Shake intensity 계산 (팀별)
   const shakeHistoryA = useGameStore((state) => state.shakeHistory.A);
@@ -141,8 +147,8 @@ export default function PlayingView() {
 
   // Debug: Log score changes for real-time updates
   useEffect(() => {
-    console.log('[PlayingView] Score updated:', score, 'Fish position:', fishPosition);
-  }, [score, fishPosition]);
+    console.log('[PlayingView] Score updated:', score, 'Progress - A:', progressA.toFixed(1), '% B:', progressB.toFixed(1), '%');
+  }, [score, progressA, progressB]);
 
   // Debug: Log game ending state
   useEffect(() => {
@@ -167,43 +173,64 @@ export default function PlayingView() {
       
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 w-full h-full flex flex-col">
-      {/* Gauge Bar at Top */}
+      {/* Gauge Bar at Top - 각 팀별 별도 게이지 */}
       <div className="p-4">
         <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-4">
-          {/* Team names above gauge */}
-          <div className="flex justify-between mb-2 px-2">
-            <span className="text-lg font-bold text-cyan-600">
-              {roomInfo.teamAName || 'Team A'}
-            </span>
-            <span className="text-lg font-bold text-orange-600">
-              {roomInfo.teamBName || 'Team B'}
-            </span>
-          </div>
+          <div className="flex gap-4">
+            {/* Team A Gauge */}
+            <div className="flex-1">
+              {/* Team A name and score */}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-lg font-bold text-cyan-600">
+                  {roomInfo.teamAName || 'Team A'}
+                </span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {score.A} / {goalScoreA}
+                </span>
+              </div>
+              {/* Team A progress bar */}
+              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${progressA}%` }}
+                  transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+                />
+                {/* Percentage display */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-sm font-bold text-white drop-shadow-md">
+                    {progressA.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
 
-          {/* Gauge bar */}
-          <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-cyan-500 via-green-400 to-orange-500 rounded-full"
-              initial={{ width: '50%' }}
-              animate={{ width: `${fishPosition * 100}%` }}
-              transition={{ type: 'spring', stiffness: 100, damping: 15 }}
-            />
-
-            {/* Fish indicator on gauge */}
-            <motion.div
-              className="absolute top-1/2 -translate-y-1/2 text-2xl z-10"
-              animate={{ left: `${fishPosition * 100}%` }}
-              transition={{ type: 'spring', stiffness: 100, damping: 15 }}
-              style={{ transform: 'translateX(-50%) translateY(-50%)' }}
-            >
-              🐟
-            </motion.div>
-
-            {/* Percentage display */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-sm font-bold text-white drop-shadow-md">
-                {Math.round(fishPosition * 100)}% - {Math.round((1 - fishPosition) * 100)}%
-              </span>
+            {/* Team B Gauge */}
+            <div className="flex-1">
+              {/* Team B name and score */}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-lg font-bold text-orange-600">
+                  {roomInfo.teamBName || 'Team B'}
+                </span>
+                <span className="text-sm font-semibold text-gray-700">
+                  {score.B} / {goalScoreB}
+                </span>
+              </div>
+              {/* Team B progress bar */}
+              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${progressB}%` }}
+                  transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+                />
+                {/* Percentage display */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-sm font-bold text-white drop-shadow-md">
+                    {progressB.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -252,22 +279,13 @@ export default function PlayingView() {
           </div>
         </div>
 
-        {/* Center Divider with Fish */}
+        {/* Center Divider - 물고기 제거, 심플한 구분선만 */}
         <div className="flex flex-col items-center justify-center px-2">
           {/* Rope/line visualization */}
           <div className="w-1 flex-1 bg-gradient-to-b from-gray-400 to-transparent opacity-50" />
-
-          {/* Fish being pulled */}
-          <motion.div
-            className="text-5xl my-2"
-            animate={{
-              y: fishPosition > 0.5 ? -20 : fishPosition < 0.5 ? 20 : 0,
-              rotate: fishPosition > 0.5 ? -15 : fishPosition < 0.5 ? 15 : 0,
-            }}
-            transition={{ type: 'spring', stiffness: 50, damping: 10 }}
-          >
-            🐟
-          </motion.div>
+          
+          {/* 빈 공간 (물고기 제거됨) */}
+          <div className="h-4" />
 
           {/* Rope/line visualization */}
           <div className="w-1 flex-1 bg-gradient-to-t from-gray-400 to-transparent opacity-50" />
