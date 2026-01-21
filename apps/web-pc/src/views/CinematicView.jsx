@@ -127,10 +127,10 @@ export default function CinematicView() {
             </button>
           )}
 
-          {/* Glassmorphism Overlay (게임 규칙 텍스트) - 가시성 개선: 검정색 테두리와 텍스트 */}
+          {/* Glassmorphism Overlay (게임 규칙 텍스트) - cyan 테두리로 업그레이드 */}
           {!videoError && (
-            <div className="fixed left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none w-full max-w-2xl px-6">
-              <GlassPanel border="black" className="py-6 px-8 text-center bg-white/95 pointer-events-auto shadow-2xl">
+            <div className="fixed left-1/2 top-[20%] -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none w-full max-w-2xl px-6">
+              <GlassPanel border="team-b" className="py-6 px-8 text-center bg-white/95 pointer-events-auto shadow-2xl">
                 <div className="space-y-4">
                   <p className="text-xl md:text-2xl font-game text-black leading-relaxed drop-shadow-lg">
                     카운트 다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!

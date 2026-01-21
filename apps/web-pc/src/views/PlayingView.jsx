@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, Suspense, useCallback } from 'react';
+import { useEffect, Suspense, useCallback, useMemo } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { FishingRod3D } from '../components/FishingRod3D';
 import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fishingItems';
 import VideoBackground from '../components/VideoBackground';
+import WaterSplash from '../components/WaterSplash';
 import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';
 
 const ShakeItem = ({ item, onExpire }) => {
@@ -96,6 +97,30 @@ export default function PlayingView() {
   const totalScore = score.A + score.B;
   const fishPosition = totalScore > 0 ? score.A / totalScore : 0.5;
 
+  // Shake intensity 계산 (팀별)
+  const shakeHistoryA = useGameStore((state) => state.shakeHistory.A);
+  const shakeHistoryB = useGameStore((state) => state.shakeHistory.B);
+  const SHAKE_WINDOW_MS = useGameStore((state) => state.SHAKE_WINDOW_MS);
+  const MAX_SHAKES_PER_SECOND = useGameStore((state) => state.MAX_SHAKES_PER_SECOND);
+
+  const intensityA = useMemo(() => {
+    if (!shakeHistoryA || shakeHistoryA.length === 0) return 0;
+    const now = Date.now();
+    const cutoff = now - SHAKE_WINDOW_MS;
+    const recentShakes = shakeHistoryA.filter((t) => t >= cutoff);
+    const shakesPerSecond = recentShakes.length / (SHAKE_WINDOW_MS / 1000);
+    return Math.min(shakesPerSecond / MAX_SHAKES_PER_SECOND, 1);
+  }, [shakeHistoryA, SHAKE_WINDOW_MS, MAX_SHAKES_PER_SECOND]);
+
+  const intensityB = useMemo(() => {
+    if (!shakeHistoryB || shakeHistoryB.length === 0) return 0;
+    const now = Date.now();
+    const cutoff = now - SHAKE_WINDOW_MS;
+    const recentShakes = shakeHistoryB.filter((t) => t >= cutoff);
+    const shakesPerSecond = recentShakes.length / (SHAKE_WINDOW_MS / 1000);
+    return Math.min(shakesPerSecond / MAX_SHAKES_PER_SECOND, 1);
+  }, [shakeHistoryB, SHAKE_WINDOW_MS, MAX_SHAKES_PER_SECOND]);
+
   // 게임 종료 상태
   const { isEnding, showModal, winnerTeam, caughtItemIndex, animationPhase } = gameEndingState;
   const caughtItem = getItemByIndex(caughtItemIndex ?? 0);
@@ -130,6 +155,15 @@ export default function PlayingView() {
     <div className="w-full h-full relative">
       {/* 비디오 배경 */}
       <VideoBackground videoSrc={backgroundOceanVideo} className="z-0" />
+      
+      {/* 색상 오버레이 (shake intensity에 따라 팀 컬러로 빛남) */}
+      <motion.div
+        className="absolute inset-0 z-5 pointer-events-none"
+        animate={{
+          background: `radial-gradient(circle at 25% 50%, rgba(0, 191, 255, ${intensityA * 0.3}) 0%, transparent 50%), radial-gradient(circle at 75% 50%, rgba(255, 140, 0, ${intensityB * 0.3}) 0%, transparent 50%)`,
+        }}
+        transition={{ duration: 0.1 }}
+      />
       
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 w-full h-full flex flex-col">
@@ -210,6 +244,9 @@ export default function PlayingView() {
               />
             </Suspense>
 
+            {/* 물보라 파티클 효과 (Team A) */}
+            <WaterSplash intensity={intensityA} teamColor="team-a" />
+
             {/* Ocean overlay at bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-1/4 bg-gradient-to-t from-blue-600/60 to-transparent pointer-events-none" />
           </div>
@@ -268,6 +305,9 @@ export default function PlayingView() {
                 onVictoryComplete={handleVictoryComplete}
               />
             </Suspense>
+
+            {/* 물보라 파티클 효과 (Team B) */}
+            <WaterSplash intensity={intensityB} teamColor="team-b" />
 
             {/* Ocean overlay at bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-1/4 bg-gradient-to-t from-blue-600/60 to-transparent pointer-events-none" />

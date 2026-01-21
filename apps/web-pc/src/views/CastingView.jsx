@@ -291,53 +291,69 @@ export default function CastingView() {
         </div>
       )}
 
-      {/* 캐스팅 중 낚시찌 포물선 애니메이션 - 바다뷰에서 낚시대와 함께 날아감 */}
+      {/* 캐스팅 중 낚시찌 포물선 애니메이션 - 바다뷰에서 낚시대와 함께 날아감 (Power에 따라 거리/시간 차이) */}
       <AnimatePresence>
         {/* Team A 캐스팅 낚시찌 - 선박뷰 전환 전까지 표시 */}
-        {showFloatAnimA && !showFloats && (
-          <motion.div
-            className="absolute left-[25%] top-[65%] z-30 pointer-events-none"
-            initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
-            animate={{ 
-              x: [0, 50, 100],
-              y: [0, -100, -50],
-              opacity: [1, 1, 0],
-              scale: [0.8, 1, 0.6],
-              rotate: [0, 45, 90]
-            }}
-            transition={{
-              duration: 1.5,
-              ease: "easeOut",
-              times: [0, 0.5, 1]
-            }}
-            exit={{ opacity: 0 }}
-          >
-            <img src={fishingFloat} alt="casting float A" className="w-8 h-12 drop-shadow-lg" />
-          </motion.div>
-        )}
+        {showFloatAnimA && !showFloats && (() => {
+          const powerA = castingPower.A || 50; // 기본값 50
+          const normalizedA = powerA / 100; // 0~1
+          const durationA = 1.0 + (normalizedA * 1.5); // 1.0~2.5초 (power에 따라)
+          const distanceX = 50 + (normalizedA * 100); // 50~150px (power에 따라)
+          const distanceY = -80 - (normalizedA * 80); // -80~-160px (power에 따라)
+          
+          return (
+            <motion.div
+              className="absolute left-[25%] top-[65%] z-30 pointer-events-none"
+              initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
+              animate={{ 
+                x: [0, distanceX * 0.5, distanceX],
+                y: [0, distanceY, distanceY * 0.6],
+                opacity: [1, 1, 0],
+                scale: [0.8, 1, 0.5],
+                rotate: [0, 45, 90]
+              }}
+              transition={{
+                duration: durationA,
+                ease: "easeOut",
+                times: [0, 0.5, 1]
+              }}
+              exit={{ opacity: 0 }}
+            >
+              <img src={fishingFloat} alt="casting float A" className="w-8 h-12 drop-shadow-lg" />
+            </motion.div>
+          );
+        })()}
 
         {/* Team B 캐스팅 낚시찌 - 선박뷰 전환 전까지 표시 */}
-        {showFloatAnimB && !showFloats && (
-          <motion.div
-            className="absolute left-[75%] top-[65%] z-30 pointer-events-none"
-            initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
-            animate={{ 
-              x: [0, -50, -100],
-              y: [0, -100, -50],
-              opacity: [1, 1, 0],
-              scale: [0.8, 1, 0.6],
-              rotate: [0, -45, -90]
-            }}
-            transition={{
-              duration: 1.5,
-              ease: "easeOut",
-              times: [0, 0.5, 1]
-            }}
-            exit={{ opacity: 0 }}
-          >
-            <img src={fishingFloat} alt="casting float B" className="w-8 h-12 drop-shadow-lg" />
-          </motion.div>
-        )}
+        {showFloatAnimB && !showFloats && (() => {
+          const powerB = castingPower.B || 50; // 기본값 50
+          const normalizedB = powerB / 100; // 0~1
+          const durationB = 1.0 + (normalizedB * 1.5); // 1.0~2.5초 (power에 따라)
+          const distanceX = -(50 + (normalizedB * 100)); // -50~-150px (power에 따라)
+          const distanceY = -80 - (normalizedB * 80); // -80~-160px (power에 따라)
+          
+          return (
+            <motion.div
+              className="absolute left-[75%] top-[65%] z-30 pointer-events-none"
+              initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
+              animate={{ 
+                x: [0, distanceX * 0.5, distanceX],
+                y: [0, distanceY, distanceY * 0.6],
+                opacity: [1, 1, 0],
+                scale: [0.8, 1, 0.5],
+                rotate: [0, -45, -90]
+              }}
+              transition={{
+                duration: durationB,
+                ease: "easeOut",
+                times: [0, 0.5, 1]
+              }}
+              exit={{ opacity: 0 }}
+            >
+              <img src={fishingFloat} alt="casting float B" className="w-8 h-12 drop-shadow-lg" />
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* 선박뷰 낚시찌 - 양 팀 캐스팅 완료 후 5초간 흔들림 */}

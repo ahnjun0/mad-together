@@ -196,7 +196,8 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
       animValuesRef.current.sideOffset = 0;
 
       // 낚싯대 끝 위치 업데이트
-      if (onTipPositionUpdate && tipBoneRef.current) {
+      if (onTipPositionUpdate && tipBoneRef.current && groupRef.current) {
+        groupRef.current.updateMatrixWorld(true);
         tipBoneRef.current.getWorldPosition(tipWorldPos);
         onTipPositionUpdate({
           x: tipWorldPos.x,
@@ -337,7 +338,9 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
       animValuesRef.current.sideOffset = sideOffset;
 
       // Get actual tip bone world position for fishing line attachment
-      if (onTipPositionUpdate && tipBoneRef.current) {
+      if (onTipPositionUpdate && tipBoneRef.current && groupRef.current) {
+        // groupRef의 world matrix를 업데이트하여 정확한 world position 계산
+        groupRef.current.updateMatrixWorld(true);
         tipBoneRef.current.getWorldPosition(tipWorldPos);
         onTipPositionUpdate({
           x: tipWorldPos.x,
@@ -373,7 +376,9 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
       animValuesRef.current.sideOffset = THREE.MathUtils.lerp(animValuesRef.current.sideOffset, 0, delta * 3);
 
       // Get actual tip bone world position for fishing line attachment
-      if (onTipPositionUpdate && tipBoneRef.current) {
+      if (onTipPositionUpdate && tipBoneRef.current && groupRef.current) {
+        // groupRef의 world matrix를 업데이트하여 정확한 world position 계산
+        groupRef.current.updateMatrixWorld(true);
         tipBoneRef.current.getWorldPosition(tipWorldPos);
         onTipPositionUpdate({
           x: tipWorldPos.x,
@@ -388,6 +393,19 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
     // Update skeleton after bone changes
     if (skinnedMeshRef.current?.skeleton) {
       skinnedMeshRef.current.skeleton.update();
+    }
+    
+    // 매 프레임 낚싯대 끝 위치 업데이트 (애니메이션 중이 아닐 때도)
+    if (!animState.isAnimating && !isEnding && onTipPositionUpdate && tipBoneRef.current && groupRef.current) {
+      groupRef.current.updateMatrixWorld(true);
+      tipBoneRef.current.getWorldPosition(tipWorldPos);
+      onTipPositionUpdate({
+        x: tipWorldPos.x,
+        y: tipWorldPos.y,
+        z: tipWorldPos.z,
+        bendIntensity: animValuesRef.current.bendIntensity,
+        sideOffset: animValuesRef.current.sideOffset,
+      });
     }
   });
 

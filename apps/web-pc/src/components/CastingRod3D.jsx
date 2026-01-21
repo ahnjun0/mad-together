@@ -21,6 +21,7 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
     progress: 0,
     isCasting: false,
     activePower: 0,
+    hasStarted: false, // 최초 1회만 실행하기 위한 플래그
   });
 
   // Clone the scene using SkeletonUtils for proper SkinnedMesh cloning
@@ -57,7 +58,7 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
     bonesRef.current = bones;
   }, [clonedScene]);
 
-  // Animation loop: single cast motion based on incoming power
+  // Animation loop: single cast motion based on incoming power (최초 1회만)
   useFrame((state, delta) => {
     const bones = bonesRef.current;
     if (!bones.length) return;
@@ -65,67 +66,77 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
     const animState = animationStateRef.current;
     const inputPower = typeof power === 'number' ? power : 0;
 
-    // 새 power가 들어오면 캐스팅 애니메이션 시작
-    if (!animState.isCasting && inputPower > 0) {
+    // 최초 power 수신 시 1회만 실행하고 이후 무시
+    if (!animState.hasStarted && inputPower > 0) {
       animState.isCasting = true;
+      animState.hasStarted = true;
       animState.progress = 0;
       animState.activePower = Math.max(0, Math.min(inputPower, 100));
+      console.log('[CastingRod3D] 🎣 Animation started with power:', animState.activePower);
     }
 
     if (animState.isCasting) {
       const normalized = animState.activePower / 100;
       
-      // Power에 따른 duration 계산 (3.5~5.5초)
-      // 백스윙(0.5초) + 스윙(1초) + 줄 날아가기(2~4초)
-      const lineDuration = 2 + (normalized * 2); // 2~4초
-      const totalDuration = 0.5 + 1.0 + lineDuration;
+      // Power에 따른 duration 계산
+      // 백스윙(0.6초) + 스윙(0.8초) + 줄 날아가기(1.5~3.5초)
+      const lineDuration = 1.5 + (normalized * 2); // 1.5~3.5초 (power에 따라 차이)
+      const totalDuration = 0.6 + 0.8 + lineDuration;
       
       animState.progress = Math.min(animState.progress + delta, totalDuration);
       const t = animState.progress / totalDuration;
 
       // 단계별 시간 비율 계산
-      const backswingEnd = 0.5 / totalDuration;
-      const swingEnd = (0.5 + 1.0) / totalDuration;
+      const backswingEnd = 0.6 / totalDuration;
+      const swingEnd = (0.6 + 0.8) / totalDuration;
 
       let pumpAngle = 0;
       let bendIntensity = 0;
       const easeInOut = (v) =>
         v < 0.5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2;
+      const easeOutQuad = (v) => 1 - (1 - v) * (1 - v);
 
-      // 백스윙: 뒤로 당겨짐 (70%로 완화)
+      // 1단계: 백스윙 - 뒤로 당겨짐 (부드러운 시작)
       if (t < backswingEnd) {
         const phaseT = t / backswingEnd;
-        pumpAngle = -easeInOut(phaseT) * 0.35 * normalized; // 0.5 → 0.35 (70%)
-        bendIntensity = easeInOut(phaseT) * 0.35 * normalized;
+        const backswingAngle = -0.4 * normalized; // 백스윙 최대 각도
+        pumpAngle = easeInOut(phaseT) * backswingAngle;
+        bendIntensity = easeInOut(phaseT) * 0.4 * normalized;
       } 
-      // 포워드 스윙: 앞으로 던지기 (power에 따라 강도 증가)
+      // 2단계: 포워드 스윙 - 앞으로 던지기 (백스윙 끝 각도에서 자연스럽게 연결)
       else if (t < swingEnd) {
         const phaseT = (t - backswingEnd) / (swingEnd - backswingEnd);
-        const swingPower = 0.6 + (normalized * 0.4); // 0.6~1.0 범위
+        const backswingAngle = -0.4 * normalized; // 백스윙 끝 각도
+        const swingAngle = (0.8 + normalized * 0.4); // 스윙 최대 각도 (power에 따라 0.8~1.2)
+        
+        // 백스윙 끝에서 스윙으로 부드럽게 전환 (easeOutQuad 사용)
         pumpAngle = THREE.MathUtils.lerp(
-          -0.35 * normalized,
-          swingPower * normalized,
-          easeInOut(phaseT),
+          backswingAngle,
+          swingAngle,
+          easeOutQuad(phaseT)
         );
+        
         bendIntensity = THREE.MathUtils.lerp(
-          0.35 * normalized,
-          1.2 * normalized, // 더 역동적으로
-          easeInOut(phaseT),
+          0.4 * normalized,
+          1.5 * normalized, // 스윙 시 더 큰 휘어짐
+          easeOutQuad(phaseT)
         );
       } 
-      // 줄 날아가기: 낚싯줄이 포물선으로 날아감 (power에 따라 더 멀리)
+      // 3단계: 줄 날아가기 - 던진 자세 유지하며 줄이 날아감 (power에 따라 시간 차이)
       else {
         const phaseT = (t - swingEnd) / (1 - swingEnd);
-        const holdAngle = 0.3 * normalized; // 던진 자세 유지
+        const holdAngle = 0.5 + (normalized * 0.3); // 던진 자세 (power에 따라 0.5~0.8)
+        
         pumpAngle = THREE.MathUtils.lerp(
-          0.6 * normalized,
+          0.8 + normalized * 0.4,
           holdAngle,
-          easeInOut(phaseT),
+          easeInOut(phaseT)
         );
+        
         bendIntensity = THREE.MathUtils.lerp(
-          1.2 * normalized,
-          0.3 * normalized, // 약간의 긴장감 유지
-          easeInOut(phaseT),
+          1.5 * normalized,
+          0.4 * normalized, // 자세 유지하며 긴장 완화
+          easeInOut(phaseT)
         );
       }
 
@@ -140,23 +151,15 @@ function CastingRodModel({ team, mirrored = false, power = 0 }) {
       bones.forEach((bone, index) => {
         if (!bone || index === 0) return;
         const boneWeight = index / (bones.length - 1);
-        const bendAmount = bendIntensity * boneWeight * 0.25; // 0.2 → 0.25 (더 휘어짐)
+        const bendAmount = bendIntensity * boneWeight * 0.3;
         bone.rotation.x = bendAmount;
       });
 
       // 종료 시점에 상태 유지 (원위치로 돌아가지 않음)
       if (animState.progress >= totalDuration) {
-        // 애니메이션은 끝났지만 마지막 자세 유지
         animState.isCasting = false;
-        // progress와 activePower는 초기화하지 않음 (자세 유지)
+        console.log('[CastingRod3D] ✅ Animation completed');
       }
-    } else if (animState.activePower === 0) {
-      // activePower가 0일 때만 원위치로 복귀
-      bones.forEach((bone) => {
-        if (!bone) return;
-        bone.rotation.x = THREE.MathUtils.lerp(bone.rotation.x, 0, delta * 3);
-        bone.rotation.z = THREE.MathUtils.lerp(bone.rotation.z, 0, delta * 3);
-      });
     }
 
     // Update skeleton after bone changes
