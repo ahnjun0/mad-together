@@ -116,9 +116,20 @@ export default function WaitingView() {
 
   return (
     <div className="w-screen h-screen overflow-hidden relative">
-      {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
+      {/* Background Layer: 바다 영상 배경 */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      >
+        <source src={backgroundOceanVideo} type="video/mp4" />
+      </video>
+      
+      {/* Fallback: 비디오 로딩 실패 시 이미지 배경 */}
       <div 
-        className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom]"
+        className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom] opacity-0"
         style={{ 
           backgroundImage: `url(${bgShip})`,
           backgroundSize: 'cover',
