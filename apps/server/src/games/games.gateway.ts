@@ -400,7 +400,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       console.log(`[GamesGateway] 🔄 Resetting game for room ${roomId}`);
 
       // 1. Room 상태를 WAITING으로 변경
-      const room = await this.roomsService.updateRoomStatus(roomId, RoomStatus.WAITING);
+      await this.roomsService.updateRoomStatus(roomId, RoomStatus.WAITING);
+      const room = await this.roomsService.getRoomById(roomId);
 
       // 2. Gateway 메모리 상태 초기화
       this.gameStartTime.delete(roomId);
