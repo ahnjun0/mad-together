@@ -85,11 +85,14 @@ export default function WaitingView() {
 
   const allPlayers = [...teamA_players, ...teamB_players, ...unassignedPlayers];
 
-  // Start Game 버튼 비활성 조건
+  // Start Game 버튼 비활성 조건 (강화된 조건)
   const isStartDisabled =
     !socketConnected || // 소켓이 연결되지 않음
     allPlayers.length === 0 || // 플레이어 없음
     unassignedPlayers.length > 0 || // 팀 미선택 인원 존재
+    teamA_players.length === 0 || // Team A가 비어있음
+    teamB_players.length === 0 || // Team B가 비어있음
+    teamA_players.length !== teamB_players.length || // 양 팀 인원이 다름
     allPlayers.some((p) => !p.isReady); // 준비 안 된 인원 존재
 
   return (

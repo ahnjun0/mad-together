@@ -22,6 +22,8 @@ export default function CastingView() {
   const [hasCastingTimerStarted, setHasCastingTimerStarted] = useState(false);
   const [showFloats, setShowFloats] = useState(false); // 낚시찌 표시 여부
   const [showHit, setShowHit] = useState(false); // HIT 효과 표시 여부
+  const [showFloatAnimA, setShowFloatAnimA] = useState(false); // Team A 낚시찌 포물선 애니메이션
+  const [showFloatAnimB, setShowFloatAnimB] = useState(false); // Team B 낚시찌 포물선 애니메이션
   const tickAudioRef = useRef(null);
   const endAudioRef = useRef(null);
   const hitAudioRef = useRef(null);
@@ -46,14 +48,23 @@ export default function CastingView() {
       if (data.team === 'A') {
         setTeamACasted(true);
         setCastTriggered(true);
+        // Team A 낚시찌 포물선 애니메이션 시작
+        setShowFloatAnimA(true);
       } else if (data.team === 'B') {
         setTeamBCasted(true);
         setCastTriggered(true);
+        // Team B 낚시찌 포물선 애니메이션 시작
+        setShowFloatAnimB(true);
       }
       
-      // 양 팀 모두 캐스팅 완료 시 낚시찌 표시
-      if ((data.team === 'A' && teamBCasted) || (data.team === 'B' && teamACasted)) {
-        setShowFloats(true);
+      // 양 팀 모두 캐스팅 완료 시 2초 대기 후 선박뷰로 전환
+      const bothTeamsCasted = (data.team === 'A' && teamBCasted) || (data.team === 'B' && teamACasted);
+      if (bothTeamsCasted) {
+        console.log('[CastingView] 🎯 Both teams casted, waiting 2s for float animation');
+        // 2초 대기 후 낚시찌 표시 (포물선 애니메이션 완료 시간 확보)
+        setTimeout(() => {
+          setShowFloats(true);
+        }, 2000);
       }
     };
 
@@ -67,10 +78,11 @@ export default function CastingView() {
         hitAudioRef.current.play().catch(e => console.warn('[CastingView] Hit sound play failed:', e));
       }
       
-      // 0.5초 후 Playing 화면으로 전환 (startCountdown 호출)
+      // 1초 후 Playing 화면으로 전환 (startCountdown 호출)
       setTimeout(() => {
+        console.log('[CastingView] 🎮 Starting countdown after HIT');
         startCountdown();
-      }, 500);
+      }, 100);
     };
 
     socket.on('team_casted', handleTeamCasted);
@@ -121,26 +133,21 @@ export default function CastingView() {
   const canStartCountdown = teamACasted && teamBCasted;
   const hasBothCasted = canStartCountdown;
   
-  // 양 팀 캐스팅 완료 시 낚시찌 표시
-  useEffect(() => {
-    if (hasBothCasted) {
-      setShowFloats(true);
-    }
-  }, [hasBothCasted]);
-  
-  // Power에 따른 낚시찌 Y 위치 계산 (power 0~100 → 화면 세로의 1/20 차이)
-  // 화면 높이 기준으로 바다 위에 위치하도록 조정
+  // Power에 따른 낚시찌 Y 위치 계산
+  // power가 높을수록 더 멀리 던져져서 화면 위쪽(y축 작은 값)에 위치
   const calculateFloatY = (power) => {
-    const basePosPercent = 60; // 기본 위치 (화면 상단에서 55%)
-    const powerOffset = (power / 100) * 5; // 0~5% 변화
-    return `${basePosPercent + powerOffset}%`;
+    const basePosPercent = 55; // 기본 위치를 더 높임 (선박과 겹치지 않도록)
+    const powerOffset = (power / 100) * 10; // 0~10% 변화폭
+    // power가 높을수록 위로 (더 멀리 던짐)
+    return `${basePosPercent - powerOffset}%`;
   };
 
   // 선박뷰 ↔ 바다뷰 전환:
-  // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후: 선박뷰
+  // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후(낚시찌 표시 시): 선박뷰
   // - 실제 캐스팅 중(낚싯줄이 날아가는 구간): 바다뷰
+  // showFloats가 true가 되면 선박뷰로 전환 (2초 지연 후)
   const backgroundImage =
-    isCastingStarted && !hasBothCasted ? backgroundOcean : backgroundOnship;
+    isCastingStarted && !showFloats ? backgroundOcean : backgroundOnship;
 
   const handleStartCastingTimer = () => {
     console.log('[CastingView] ⏰ Starting casting timer');
@@ -216,8 +223,8 @@ export default function CastingView() {
         </div>
       )}
 
-      {/* Start Countdown Button (when both teams casted & casting done) */}
-      {canStartCountdown && isCastingStarted && (
+      {/* Start Countdown Button (선박뷰 전환 후 표시, HIT 전까지만) */}
+      {canStartCountdown && showFloats && !showHit && (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
           <motion.button
             initial={{ opacity: 0, y: 20 }}
@@ -242,10 +249,12 @@ export default function CastingView() {
               '🎣 Casting을 준비하세요. 카운트다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!'}
             {hasCastingTimerStarted && !isCastingStarted &&
               '⏳ 서버 카운트다운 진행 중입니다...'}
-            {isCastingStarted && !hasBothCasted &&
+            {isCastingStarted && !showFloats &&
               '🚀 팀장이 캐스팅을 진행 중입니다!'}
-            {hasBothCasted && isCastingStarted &&
-              '✅ 양 팀 모두 캐스팅 완료! 게임 시작 카운트다운을 시작하세요'}
+            {showFloats && !showHit &&
+              '✅ 양 팀 모두 캐스팅 완료! 입질을 기다리는 중...'}
+            {showHit &&
+              '🎯 입질이 왔습니다! 게임이 곧 시작됩니다!'}
           </p>
         </motion.div>
       </div>
@@ -264,13 +273,62 @@ export default function CastingView() {
         </div>
       )}
 
-      {/* 낚시찌 애니메이션 - 양 팀 캐스팅 완료 후 표시 */}
+      {/* 캐스팅 중 낚시찌 포물선 애니메이션 - 바다뷰에서 낚시대와 함께 날아감 */}
+      <AnimatePresence>
+        {/* Team A 캐스팅 낚시찌 - 선박뷰 전환 전까지 표시 */}
+        {showFloatAnimA && !showFloats && (
+          <motion.div
+            className="absolute left-[25%] top-[65%] z-30 pointer-events-none"
+            initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
+            animate={{ 
+              x: [0, 50, 100],
+              y: [0, -100, -50],
+              opacity: [1, 1, 0],
+              scale: [0.8, 1, 0.6],
+              rotate: [0, 45, 90]
+            }}
+            transition={{
+              duration: 1.5,
+              ease: "easeOut",
+              times: [0, 0.5, 1]
+            }}
+            exit={{ opacity: 0 }}
+          >
+            <img src={fishingFloat} alt="casting float A" className="w-8 h-12 drop-shadow-lg" />
+          </motion.div>
+        )}
+
+        {/* Team B 캐스팅 낚시찌 - 선박뷰 전환 전까지 표시 */}
+        {showFloatAnimB && !showFloats && (
+          <motion.div
+            className="absolute left-[75%] top-[65%] z-30 pointer-events-none"
+            initial={{ x: 0, y: 0, opacity: 1, scale: 0.8 }}
+            animate={{ 
+              x: [0, -50, -100],
+              y: [0, -100, -50],
+              opacity: [1, 1, 0],
+              scale: [0.8, 1, 0.6],
+              rotate: [0, -45, -90]
+            }}
+            transition={{
+              duration: 1.5,
+              ease: "easeOut",
+              times: [0, 0.5, 1]
+            }}
+            exit={{ opacity: 0 }}
+          >
+            <img src={fishingFloat} alt="casting float B" className="w-8 h-12 drop-shadow-lg" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 선박뷰 낚시찌 - 양 팀 캐스팅 완료 후 5초간 흔들림 */}
       <AnimatePresence>
         {showFloats && hasBothCasted && (
           <>
-            {/* Team A 낚시찌 */}
+            {/* Team A 낚시찌 - 위치 중앙으로 4% 이동 (25% → 29%) */}
             <motion.div
-              className="absolute left-[25%] z-30 pointer-events-none"
+              className="absolute left-[29%] z-30 pointer-events-none"
               style={{ top: calculateFloatY(castingPower.A || 0) }}
               initial={{ opacity: 0, scale: 0 }}
               animate={{ 
@@ -291,9 +349,9 @@ export default function CastingView() {
               <img src={fishingFloat} alt="fishing float A" className="w-12 h-16 drop-shadow-lg" />
             </motion.div>
 
-            {/* Team B 낚시찌 */}
+            {/* Team B 낚시찌 - 위치 중앙으로 4% 이동 (75% → 71%) */}
             <motion.div
-              className="absolute left-[75%] z-30 pointer-events-none"
+              className="absolute left-[71%] z-30 pointer-events-none"
               style={{ top: calculateFloatY(castingPower.B || 0) }}
               initial={{ opacity: 0, scale: 0 }}
               animate={{ 
@@ -362,11 +420,11 @@ export default function CastingView() {
         )}
       </AnimatePresence>
 
-      {/* 하단 좌측: 게임 종료 버튼
+      {/* 우측 상단: 게임 종료 버튼 */}
       <button
         type="button"
         className="
-          absolute bottom-4 left-4 px-4 py-2 rounded-lg
+          absolute top-4 right-4 px-4 py-2 rounded-lg
           bg-red-500/80 hover:bg-red-600 text-white font-semibold
           drop-shadow-lg z-50 transition-colors
         "
@@ -377,7 +435,8 @@ export default function CastingView() {
         }}
       >
         게임 종료
-      </button> */}
+      </button>
+      
       {/* 하단 좌/우 팀장 아바타 - 화면 확대/축소와 무관하게 고정 위치 */}
       {leaderA && (
         <div className="absolute bottom-6 left-8 z-20 pointer-events-none">
