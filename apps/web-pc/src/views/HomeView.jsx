@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { createRoom } from '../api/room';
 import { usePcSocket } from '../hooks/usePcSocket';
 import { useAudioPreload, useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
-import bgShip from '../assets/background_deck.png';
+// import bgShip from '../assets/background_deck.png'; // 이미지 배경 (주석처리)
+import backgroundMainVideo from '../assets/background_main.mp4';
 import backgroundMusicDeck from '../assets/sounds/background_music_deck.mp3';
 import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 
@@ -17,6 +18,7 @@ export default function HomeView() {
   const [maxPlayersError, setMaxPlayersError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const videoRef = useRef(null);
 
   const { setRoomInfo, setGameState, accessToken, user, logout } = useGameStore();
   const { joinRoom, waitForConnection } = usePcSocket();
@@ -111,8 +113,20 @@ export default function HomeView() {
 
   return (
     <div className="w-screen h-screen overflow-hidden relative">
-      {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
-      <div 
+      {/* 비디오 배경 */}
+      <video
+        ref={videoRef}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      >
+        <source src={backgroundMainVideo} type="video/mp4" />
+      </video>
+
+      {/* 이미지 배경 (주석처리) */}
+      {/* <div 
         className="fixed inset-0 w-full h-full z-0 bg-[#AEE2FF] bg-cover bg-[center_bottom]"
         style={{ 
           backgroundImage: `url(${bgShip})`,
@@ -120,7 +134,7 @@ export default function HomeView() {
           backgroundPosition: 'center bottom',
           backgroundRepeat: 'no-repeat'
         }}
-      />
+      /> */}
 
       {/* Content Layer (Safe Zone): UI 컨테이너는 중앙에 배치 */}
       <div className="relative z-10 w-full h-full flex items-center justify-center">

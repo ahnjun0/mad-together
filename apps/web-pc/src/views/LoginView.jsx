@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useGameStore } from '../store/useGameStore';
-import backgroundDeck from '../assets/background_deck.png';
+// import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
+// import backgroundDeck from '../assets/background_deck.png'; // 이미지 배경 (주석처리)
+import backgroundMainVideo from '../assets/background_main.mp4';
+// import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
@@ -10,6 +13,13 @@ export default function LoginView() {
   const [error, setError] = useState('');
 
   const { setAuth, setGameState, restoreRoom, setHost } = useGameStore();
+
+  // 🎵 LoginView 배경음악 (주석처리)
+  // useBackgroundMusic(backgroundOcean, {
+  //   volume: 0.3,
+  //   loop: true,
+  //   autoPlay: true,
+  // });
 
   const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
@@ -67,16 +77,35 @@ export default function LoginView() {
     setError('Google 로그인에 실패했습니다. 다시 시도해주세요.');
   };
 
-  // ⚡️ [Preloading Logic] - Background image preload
+  // ⚡️ [Preloading Logic] - Background video preload
   useEffect(() => {
-    const img = new Image();
-    img.src = backgroundDeck;
-    console.log('[LoginView] 🖼️ Preloading background_deck.png');
+    const video = document.createElement('video');
+    video.src = backgroundMainVideo;
+    video.preload = 'auto';
+    video.muted = true;
+    try {
+      video.load();
+      console.log('[LoginView] 🎬 Preloading background_main.mp4');
+    } catch (e) {
+      console.warn('[LoginView] ⚠️ Video preload failed:', e);
+    }
     
     return () => {
-      img.src = '';
+      video.removeAttribute('src');
+      video.load();
     };
   }, []);
+
+  // ⚡️ [Preloading Logic - 주석처리] - Background image preload
+  // useEffect(() => {
+  //   const img = new Image();
+  //   img.src = backgroundDeck;
+  //   console.log('[LoginView] 🖼️ Preloading background_deck.png');
+  //   
+  //   return () => {
+  //     img.src = '';
+  //   };
+  // }, []);
 
   // 개발용 로그인 (DEV 환경에서만)
   const handleDevLogin = async () => {
@@ -105,6 +134,20 @@ export default function LoginView() {
 
   return (
     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900 via-slate-900 to-cyan-900">
+      {/* 비디오 배경 (주석처리 - HomeView에서 사용) */}
+      {/* <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0"
+      >
+        <source src={backgroundMainVideo} type="video/mp4" />
+      </video> */}
+
+      {/* 오버레이 (주석처리) */}
+      {/* <div className="absolute inset-0 bg-black/30 z-[1]" /> */}
+
       <div className="bg-white/10 backdrop-blur-md border border-white/20 p-10 rounded-3xl shadow-2xl max-w-md w-full mx-4">
         <div className="text-center mb-10">
           <div className="text-7xl mb-4">🎣</div>
