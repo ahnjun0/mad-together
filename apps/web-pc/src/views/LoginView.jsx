@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useGameStore } from '../store/useGameStore';
+import backgroundDeck from '../assets/background_deck.png';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
@@ -65,6 +66,17 @@ export default function LoginView() {
   const handleGoogleError = () => {
     setError('Google 로그인에 실패했습니다. 다시 시도해주세요.');
   };
+
+  // ⚡️ [Preloading Logic] - Background image preload
+  useEffect(() => {
+    const img = new Image();
+    img.src = backgroundDeck;
+    console.log('[LoginView] 🖼️ Preloading background_deck.png');
+    
+    return () => {
+      img.src = '';
+    };
+  }, []);
 
   // 개발용 로그인 (DEV 환경에서만)
   const handleDevLogin = async () => {

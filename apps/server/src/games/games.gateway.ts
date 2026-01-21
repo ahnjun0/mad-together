@@ -748,28 +748,40 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const goalScore = teamACount * 100;
     await this.redis.setGoalScore(roomId, goalScore);
 
-    // 캐스팅 승자에게 보너스 점수 적용 (팀원 1인당 2점)
+    // 캐스팅 승자에게 보너스 점수 적용 (팀 점수 + 개인 점수)
     const teamAPowerKey = `${roomId}:A`;
     const teamBPowerKey = `${roomId}:B`;
     const teamAPower = this.castingPower.get(teamAPowerKey) || 0;
     const teamBPower = this.castingPower.get(teamBPowerKey) || 0;
 
     let castingWinner: Team | null = null;
-    let bonusScore = 0;
+    let teamBonusScore = 0;
+    const individualBonusScore = 4; // 개인당 4점 (인당 100점 기준 4%)
 
     if (teamAPower > teamBPower) {
       castingWinner = Team.A;
-      bonusScore = teamACount * 2; // 팀원 1인당 2점
+      teamBonusScore = teamACount * 4; // 팀 점수: 팀원 1인당 2점
     } else if (teamBPower > teamAPower) {
       castingWinner = Team.B;
-      bonusScore = teamBCount * 2; // 팀원 1인당 2점
+      teamBonusScore = teamBCount * 4; // 팀 점수: 팀원 1인당 2점
     }
     // 동점인 경우 보너스 없음
 
-    if (castingWinner && bonusScore > 0) {
-      console.log(`[Gateway] Casting winner: Team ${castingWinner}, bonus: ${bonusScore} points`);
+    if (castingWinner && teamBonusScore > 0) {
+      console.log(`[Gateway] Casting winner: Team ${castingWinner}, team bonus: ${teamBonusScore} points, individual bonus: ${individualBonusScore} points per player`);
       console.log(`[Gateway] Casting power - A: ${teamAPower}, B: ${teamBPower}`);
-      await this.redis.incrementTeamScore(roomId, castingWinner, bonusScore);
+      
+      // 팀 점수 증가
+      await this.redis.incrementTeamScore(roomId, castingWinner, teamBonusScore);
+      
+      // 승리팀 각 플레이어 개인 점수 4점씩 증가
+      const winningTeamPlayers = room.players.filter(p => p.team === castingWinner);
+      await Promise.all(
+        winningTeamPlayers.map(player => 
+          this.redis.incrementPlayerScore(roomId, player.id, individualBonusScore)
+        )
+      );
+      console.log(`[Gateway] Applied ${individualBonusScore} bonus points to ${winningTeamPlayers.length} players in Team ${castingWinner}`);
     }
 
     // 캐스팅 power 데이터 정리

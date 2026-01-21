@@ -6,7 +6,7 @@ import TeamPanel from '../components/TeamPanel';
 import QRCodePanel from '../components/QRCodePanel';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
-import bgShip from '../assets/background-ship.jpg';
+import bgShip from '../assets/background_deck.png';
 import bgOnship from '../assets/background_onship.png';
 import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';
 import backgroundFinishedLeft from '../assets/background_finished_left.png';

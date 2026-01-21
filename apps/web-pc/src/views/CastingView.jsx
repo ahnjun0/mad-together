@@ -152,11 +152,8 @@ export default function CastingView() {
     return `${basePosPercent - powerOffset}%`;
   };
 
-  // 선박뷰 ↔ 바다뷰 전환:
-  // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후(낚시찌 표시 시): 선박뷰
-  // - 실제 캐스팅 중(낚싯줄이 날아가는 구간): 바다뷰
-  // showFloats가 true가 되면 선박뷰로 전환 (2초 지연 후)
-  const isOceanView = isCastingStarted && !showFloats;
+  // 선박뷰 고정 (바다뷰 제거)
+  const isOceanView = false;
 
   const handleStartCastingTimer = () => {
     console.log('[CastingView] ⏰ Starting casting timer');

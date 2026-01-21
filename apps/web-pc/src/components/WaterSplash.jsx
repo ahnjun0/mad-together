@@ -12,18 +12,18 @@ export default function WaterSplash({ intensity, teamColor }) {
 
   useEffect(() => {
     if (intensity > 0.1) {
-      // intensity에 따라 파티클 생성 (높을수록 많이)
-      const particleCount = Math.floor(intensity * 8); // 최대 8개
+      // intensity에 따라 파티클 생성 (높을수록 많이) - 개수 2배 증가
+      const particleCount = Math.floor(intensity * 16); // 최대 16개 (기존 8개에서 2배)
       const newParticles = Array.from({ length: particleCount }, (_, i) => ({
         id: `${Date.now()}-${i}`,
         x: Math.random() * 100 - 50, // -50 ~ 50
         y: Math.random() * 50, // 0 ~ 50
         rotation: Math.random() * 360,
-        scale: 0.5 + Math.random() * 0.5, // 0.5 ~ 1.0
+        scale: 1.0 + Math.random() * 1.0, // 1.0 ~ 2.0 (기존 0.5 ~ 1.0에서 2배)
         duration: 0.8 + Math.random() * 0.4, // 0.8 ~ 1.2초
       }));
 
-      setParticles(prev => [...prev.slice(-20), ...newParticles]); // 최대 20개 유지
+      setParticles(prev => [...prev.slice(-40), ...newParticles]); // 최대 40개 유지 (기존 20개에서 2배)
 
       // 파티클 제거
       const timeout = setTimeout(() => {
@@ -34,9 +34,10 @@ export default function WaterSplash({ intensity, teamColor }) {
     }
   }, [intensity]);
 
+  // 색상 채도와 밝기 강화 (투명도 0.6 → 0.9)
   const particleColor = teamColor === 'team-a' 
-    ? 'rgba(255, 140, 0, 0.6)' // Orange
-    : 'rgba(0, 191, 255, 0.6)'; // Cyan
+    ? 'rgba(255, 140, 0, 0.9)' // Orange - 더 진하고 밝게
+    : 'rgba(0, 191, 255, 0.9)'; // Cyan - 더 진하고 밝게
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -62,9 +63,9 @@ export default function WaterSplash({ intensity, teamColor }) {
             ease: 'easeOut',
           }}
         >
-          {/* 물방울 */}
+          {/* 물방울 - 크기 2배 증가 (w-3 h-3 → w-6 h-6), blur 제거로 선명하게 */}
           <div
-            className="w-3 h-3 rounded-full blur-sm"
+            className="w-6 h-6 rounded-full"
             style={{ backgroundColor: particleColor }}
           />
         </motion.div>
