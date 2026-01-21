@@ -7,6 +7,57 @@ import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fi
 import backgroundOcean from '../assets/background-ocean.png';
 import backgroundOceanMusic from '../assets/sounds/background_ocean.mp3';
 
+const ShakeItem = ({ item, onExpire }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onExpire(item.id);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [item.id, onExpire]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: 20, scale: 0.8 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -20, scale: 0.5, transition: { duration: 0.2 } }}
+      className="flex flex-col items-center bg-black/30 rounded-lg p-1 min-w-[60px] backdrop-blur-sm border border-white/20"
+    >
+      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-300 border-2 border-white mb-1">
+        {item.profileImage ? (
+          <img src={item.profileImage} alt={item.nickname} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs bg-gray-500 text-white">
+            {item.nickname.charAt(0)}
+          </div>
+        )}
+      </div>
+      <span className="text-[10px] text-white font-bold truncate max-w-[50px] leading-tight">
+        {item.nickname}
+      </span>
+    </motion.div>
+  );
+};
+
+const ShakeStream = ({ team }) => {
+  const recentShakers = useGameStore((state) => state.recentShakers[team]);
+  const removeShaker = useGameStore((state) => state.removeShaker);
+
+  return (
+    <div className="flex-1 flex items-center justify-start overflow-hidden h-14 px-2 gap-2 mask-linear-fade">
+      <AnimatePresence mode="popLayout">
+        {recentShakers.map((shaker) => (
+          <ShakeItem
+            key={shaker.id}
+            item={shaker}
+            onExpire={(id) => removeShaker(team, id)}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // PC (Host) only view - Split screen with two fishing rods
 export default function PlayingView() {
   const {
@@ -111,13 +162,17 @@ export default function PlayingView() {
         {/* Team A - Left Side */}
         <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-cyan-400/50 overflow-hidden backdrop-blur-sm">
           {/* Team Header */}
-          <div className="p-3 bg-gradient-to-r from-cyan-500/80 to-cyan-400/80 text-center">
-            <h2 className="text-2xl font-bold text-white drop-shadow-md">
-              {roomInfo.teamAName || 'Team A'}
-            </h2>
-            <div className="text-4xl font-bold text-white drop-shadow-lg">
-              {score.A}
+          <div className="p-3 bg-gradient-to-r from-cyan-500/80 to-cyan-400/80 flex items-center gap-4">
+            <div className="flex flex-col items-start min-w-[100px] shrink-0">
+              <h2 className="text-2xl font-bold text-white drop-shadow-md truncate max-w-full">
+                {roomInfo.teamAName || 'Team A'}
+              </h2>
+              <div className="text-4xl font-bold text-white drop-shadow-lg leading-none">
+                {score.A}
+              </div>
             </div>
+            {/* Shake Stream Area */}
+            <ShakeStream team="A" />
           </div>
 
           {/* 3D Fishing Rod View */}
@@ -166,13 +221,17 @@ export default function PlayingView() {
         {/* Team B - Right Side */}
         <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-orange-400/50 overflow-hidden backdrop-blur-sm">
           {/* Team Header */}
-          <div className="p-3 bg-gradient-to-r from-orange-400/80 to-orange-500/80 text-center">
-            <h2 className="text-2xl font-bold text-white drop-shadow-md">
-              {roomInfo.teamBName || 'Team B'}
-            </h2>
-            <div className="text-4xl font-bold text-white drop-shadow-lg">
-              {score.B}
+          <div className="p-3 bg-gradient-to-r from-orange-400/80 to-orange-500/80 flex items-center gap-4">
+            <div className="flex flex-col items-start min-w-[100px] shrink-0">
+              <h2 className="text-2xl font-bold text-white drop-shadow-md truncate max-w-full">
+                {roomInfo.teamBName || 'Team B'}
+              </h2>
+              <div className="text-4xl font-bold text-white drop-shadow-lg leading-none">
+                {score.B}
+              </div>
             </div>
+            {/* Shake Stream Area */}
+            <ShakeStream team="B" />
           </div>
 
           {/* 3D Fishing Rod View */}

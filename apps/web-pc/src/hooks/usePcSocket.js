@@ -406,10 +406,37 @@ export function usePcSocket() {
 
         // Track shake event for fishing rod animation
         // 게임 종료 연출 중에는 shake 이벤트를 처리하지 않음
-        const { gameEndingState: endingState } = useGameStore.getState();
+        const { gameEndingState: endingState, players } = useGameStore.getState();
         if (data.event && data.event.team && !endingState.isEnding) {
-          addShakeEvent(data.event.team);
-          console.log('[Socket] 🎣 Shake event tracked for team:', data.event.team);
+          // Find player info for floating UI
+          let userInfo = null;
+          const playerId = data.event.playerId || data.event.id;
+          const nickname = data.event.nickname;
+          
+          if (playerId || nickname) {
+            // Find player in the specific team list
+            const teamPlayers = players[data.event.team] || [];
+            const foundPlayer = teamPlayers.find(p => 
+              (playerId && (p.id === playerId || p.playerId === playerId)) || 
+              (!playerId && p.nickname === nickname)
+            );
+
+            if (foundPlayer) {
+              userInfo = {
+                nickname: foundPlayer.nickname,
+                profileImage: foundPlayer.profileImage,
+              };
+            } else if (nickname) {
+              // Fallback if player not found in store but nickname exists in event
+              userInfo = {
+                nickname: nickname,
+                profileImage: null,
+              };
+            }
+          }
+
+          addShakeEvent(data.event.team, userInfo);
+          console.log('[Socket] 🎣 Shake event tracked for team:', data.event.team, userInfo);
         }
 
         // Show player who shook (optional: can be used for floating nickname)
