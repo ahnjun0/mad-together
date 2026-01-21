@@ -48,6 +48,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   private heartbeatCleanupInterval: NodeJS.Timeout | null = null;
   // Casting completion tracking: roomId:team -> boolean
   private castingComplete: Map<string, boolean> = new Map();
+  // Casting power tracking: roomId:team -> power (0~100)
+  private castingPower: Map<string, number> = new Map();
 
   // Helper method to broadcast current room state to all clients in the room
   private async broadcastRoomState(roomId: string) {
@@ -172,6 +174,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       this.gameStartTime.delete(roomId);
       this.gamePlayerIds.delete(roomId);
       this.castingWindowOpen.delete(roomId);
+      // 캐스팅 관련 상태 정리
+      this.castingComplete.delete(`${roomId}:A`);
+      this.castingComplete.delete(`${roomId}:B`);
+      this.castingPower.delete(`${roomId}:A`);
+      this.castingPower.delete(`${roomId}:B`);
 
       console.log(`[GamesGateway] 🏁 Game terminated: ${roomId}, reason: ${reason}`);
     } catch (error) {
@@ -661,6 +668,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       clampedPower,
     });
 
+    // 팀의 최종 casting power 값 저장 (캐스팅 중 마지막 값이 최종 값)
+    const powerKey = `${roomId}:${team}`;
+    this.castingPower.set(powerKey, clampedPower);
+
     this.server.to(roomId).emit('cast_result', {
       team,
       power: clampedPower,
@@ -733,14 +744,50 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 50)
     const teamACount = room.players.filter(p => p.team === Team.A).length;
+    const teamBCount = room.players.filter(p => p.team === Team.B).length;
     const goalScore = teamACount * 50;
     await this.redis.setGoalScore(roomId, goalScore);
+
+    // 캐스팅 승자에게 보너스 점수 적용 (팀원 1인당 2점)
+    const teamAPowerKey = `${roomId}:A`;
+    const teamBPowerKey = `${roomId}:B`;
+    const teamAPower = this.castingPower.get(teamAPowerKey) || 0;
+    const teamBPower = this.castingPower.get(teamBPowerKey) || 0;
+
+    let castingWinner: Team | null = null;
+    let bonusScore = 0;
+
+    if (teamAPower > teamBPower) {
+      castingWinner = Team.A;
+      bonusScore = teamACount * 2; // 팀원 1인당 2점
+    } else if (teamBPower > teamAPower) {
+      castingWinner = Team.B;
+      bonusScore = teamBCount * 2; // 팀원 1인당 2점
+    }
+    // 동점인 경우 보너스 없음
+
+    if (castingWinner && bonusScore > 0) {
+      console.log(`[Gateway] Casting winner: Team ${castingWinner}, bonus: ${bonusScore} points`);
+      console.log(`[Gateway] Casting power - A: ${teamAPower}, B: ${teamBPower}`);
+      await this.redis.incrementTeamScore(roomId, castingWinner, bonusScore);
+    }
+
+    // 캐스팅 power 데이터 정리
+    this.castingPower.delete(teamAPowerKey);
+    this.castingPower.delete(teamBPowerKey);
 
     await this.gamesService.startGame(roomId);
     this.gameStartTime.set(roomId, new Date());
 
+    // 보너스 점수가 적용된 후 현재 점수를 클라이언트에 알림
+    const teamScores = await this.redis.getTeamScores(roomId);
+
     await this.broadcastRoomState(roomId);
-    this.server.to(roomId).emit('game_started');
+    this.server.to(roomId).emit('game_started', {
+      castingWinner,
+      bonusScore,
+      initialScores: teamScores,
+    });
   }
 
   private async endGame(roomId: string, winnerTeam: Team) {

@@ -382,9 +382,23 @@ export function usePcSocket() {
       setGameState('CINEMATIC');
     });
 
-    socket.on('game_started', () => {
-      console.log('[Socket] 🎮 Game started');
+    socket.on('game_started', (data) => {
+      console.log('[Socket] 🎮 Game started:', data);
       clearShakeHistory(); // Reset shake history for new game
+
+      // 캐스팅 보너스 점수가 적용된 초기 점수 설정
+      if (data?.initialScores) {
+        setScore({
+          A: data.initialScores.A || 0,
+          B: data.initialScores.B || 0,
+        });
+        console.log('[Socket] 🎣 Casting bonus applied:', {
+          winner: data.castingWinner,
+          bonus: data.bonusScore,
+          initialScores: data.initialScores,
+        });
+      }
+
       setGameState('PLAYING');
     });
 
