@@ -67,7 +67,7 @@ export class RoomsService {
     await this.redis.initRoom(room.id);
 
     // 목표 점수 설정
-    await this.redis.setGoalScore(room.id, goalScore);
+    await this.redis.setGoalScore(room.id, goalScore, goalScore);
 
     return room;
   }

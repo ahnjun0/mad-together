@@ -5,6 +5,12 @@ import { GoogleLogin } from '@react-oauth/google';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
+// PC WaitingView에서 사용할 배경 이미지 미리 로드
+const PRELOAD_IMAGES = [
+  'https://madcamp.cloud/assets/background_deck.png',
+  // 추가로 preload할 이미지가 있다면 여기에 추가
+];
+
 export default function LoginView() {
   const [code, setCode] = useState('');
   const [isCodePreFilled, setIsCodePreFilled] = useState(false);
@@ -20,6 +26,12 @@ export default function LoginView() {
       setCode(match[1].toUpperCase());
       setIsCodePreFilled(true);
     }
+
+    // 🖼️ PC WaitingView 배경 이미지 미리 로드
+    PRELOAD_IMAGES.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
   }, []);
 
   const handleAuth = async (googleToken) => {
