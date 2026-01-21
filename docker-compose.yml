@@ -43,6 +43,8 @@ services:
       REDIS_PORT: 6379
       DEV_AUTH_ENABLED: "true"
       DEV_AUTH_TOKEN: "dev-token"
+    volumes:
+      - ./uploads:/app/uploads  # 업로드 파일 영속화
     depends_on:
       db:
         condition: service_healthy

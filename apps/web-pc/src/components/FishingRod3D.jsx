@@ -162,33 +162,37 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
         animState.isAnimating = false; // 기존 애니메이션 중지
       }
 
-      // 천천히 낚싯대 들어올리기 (2초 동안)
-      animState.victoryProgress = Math.min(animState.victoryProgress + delta * 0.5, 1);
+      // 빠르게 낚싯대 들어올리기 (약 0.3초)
+      // 1회만 훅 하고 빠르게 올리도록 속도와 이징을 조절
+      animState.victoryProgress = Math.min(animState.victoryProgress + delta * 3.5, 1);
       const progress = animState.victoryProgress;
 
-      // 부드러운 이징
-      const eased = 1 - Math.pow(1 - progress, 3);
+      // 강력한 훅 느낌을 위한 Out-Expo 이징
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
 
-      // 낚싯대 위치: 위로 들어올리기
+      // 낚싯대 위치: 낚아채는 순간 약간 위로 튀어오름
       if (groupRef.current) {
-        groupRef.current.position.y = eased * 0.8;
-        groupRef.current.rotation.x = -eased * 0.3;
+        groupRef.current.position.y = eased * 0.4;
+        groupRef.current.rotation.x = 0; // 그룹 회전은 초기화하여 본 회전에 집중
       }
 
-      // 루트 본 회전: 낚싯대를 크게 들어올림
+      // 루트 본 회전: BASE_ANGLE(-30도)에서 PUMP_ANGLE(-5도)로 이동 (델타 +25도)
       if (bones[0]) {
-        bones[0].rotation.x = -eased * (60 * DEG_TO_RAD);
+        // PUMP_DELTA = 5 - 30 = -25. 즉, eased * 25도 만큼 회전하여 -5도에 도달
+        bones[0].rotation.x = eased * (-PUMP_DELTA);
       }
 
-      // 낚싯대 휘어짐 (물고기 무게로 약간 휘어짐)
-      const bendAngle = eased * (20 * DEG_TO_RAD);
+      // 낚싯대 휘어짐: 물고기를 낚아올릴 때의 강력한 텐션
+      const totalBendAngle = eased * (60 * DEG_TO_RAD);
+      const boneCount = bones.length - 1;
       bones.forEach((bone, index) => {
         if (!bone || index === 0) return;
-        bone.rotation.z = -bendAngle * (index / (bones.length - 1));
+        // PlayingView와 동일한 방향(음수)으로 휘어짐
+        bone.rotation.z = -(totalBendAngle / boneCount);
       });
 
-      // Update for victory state
-      animValuesRef.current.bendIntensity = eased * 0.8;
+      // Update for victory state (line tension)
+      animValuesRef.current.bendIntensity = eased * 1.2;
       animValuesRef.current.sideOffset = 0;
 
       // 낚싯대 끝 위치 업데이트
@@ -200,7 +204,7 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
           z: tipWorldPos.z,
           bendIntensity: animValuesRef.current.bendIntensity,
           sideOffset: 0,
-          victoryProgress: progress, // 승리 애니메이션 진행도 전달
+          victoryProgress: progress,
         });
       }
 
