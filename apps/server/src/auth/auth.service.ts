@@ -133,7 +133,7 @@ export class AuthService {
    * @param googleId 사용자 고유 ID (파일명에 사용)
    * @returns 저장된 이미지의 상대 경로 또는 null
    */
-  private async downloadGoogleImage(googlePictureUrl: string, googleId: string): Promise<string | null> {
+  private async downloadGoogleImage(googlePictureUrl: string | undefined, googleId: string): Promise<string | null> {
     if (!googlePictureUrl) return null;
 
     try {
