@@ -6,7 +6,6 @@ import { GoogleLogin } from '@react-oauth/google';
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
 export default function LoginView() {
-  const [nickname, setNickname] = useState('');
   const [code, setCode] = useState('');
   const [isCodePreFilled, setIsCodePreFilled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,7 +22,7 @@ export default function LoginView() {
     }
   }, []);
 
-  const handleAuth = async (targetNickname, googleToken = null) => {
+  const handleAuth = async (googleToken) => {
     if (!code.trim()) {
       setError('입장 코드를 입력해주세요.');
       return;
@@ -31,30 +30,22 @@ export default function LoginView() {
 
     setLoading(true);
     try {
-      let accessToken = null;
-      let userNickname = targetNickname;
+      // Google Login
+      const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleToken }),
+      });
 
-      if (googleToken) {
-        // Google Login
-        const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: googleToken }),
-        });
-
-        if (!authRes.ok) throw new Error('Google Authentication Failed');
-        const authData = await authRes.json();
-        accessToken = authData.accessToken;
-        
-        // 백엔드에서 준 구글 이름을 기본 닉네임으로 사용
-        userNickname = authData.user.googleName;
-        
-        // 프로필 이미지 저장
-        setProfileImage(authData.user.profileImage);
-      } else {
-        // Dev Login
-        accessToken = `dev-token-${Date.now()}`;
-      }
+      if (!authRes.ok) throw new Error('Google Authentication Failed');
+      const authData = await authRes.json();
+      const accessToken = authData.accessToken;
+      
+      // 백엔드에서 준 구글 이름을 기본 닉네임으로 사용
+      const userNickname = authData.user.googleName;
+      
+      // 프로필 이미지 저장
+      setProfileImage(authData.user.profileImage);
 
       // Store data
       setToken(accessToken);
@@ -69,14 +60,8 @@ export default function LoginView() {
     }
   };
 
-  const handleDevSubmit = (e) => {
-    e.preventDefault();
-    if (!nickname.trim()) return;
-    handleAuth(nickname, null);
-  };
-
   const handleGoogleSuccess = (credentialResponse) => {
-    handleAuth(null, credentialResponse.credential);
+    handleAuth(credentialResponse.credential);
   };
 
   return (
@@ -142,37 +127,6 @@ export default function LoginView() {
               width="100%"
             />
           </div>
-
-          <div className="relative flex items-center justify-center">
-            <div className="absolute w-full border-t border-white/10"></div>
-            <span className="relative px-3 bg-transparent text-xs text-blue-200/50 bg-slate-900/50 rounded backdrop-blur">
-              OR (개발용 / 닉네임 직접 입력)
-            </span>
-          </div>
-
-          <form onSubmit={handleDevSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="닉네임 입력 (개발용)"
-                className="w-full px-5 py-3 bg-slate-800/30 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-slate-800 transition-all text-sm"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !nickname || !code}
-              className={`w-full py-3 rounded-xl font-bold text-white shadow-lg transition-all transform ${
-                loading || !nickname || !code
-                  ? 'bg-slate-700 cursor-not-allowed text-slate-400'
-                  : 'bg-slate-600 hover:bg-slate-500 active:scale-95'
-              }`}
-            >
-              {loading ? '입장 중...' : '닉네임으로 입장'}
-            </button>
-          </form>
         </div>
       </motion.div>
       
