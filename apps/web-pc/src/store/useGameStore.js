@@ -63,6 +63,15 @@ export const useGameStore = create(
     // Game result state (set when game ends)
     gameResult: null, // { winnerTeam, playerScores: [{playerId, nickname, team, score}], mvp: {playerId, nickname, score} }
 
+    // Game ending animation state (게임 종료 연출)
+    gameEndingState: {
+      isEnding: false,          // 게임 종료 연출 중인지
+      showModal: false,         // 결과 모달 표시 여부
+      winnerTeam: null,         // 승리 팀 ('A' | 'B')
+      caughtItemIndex: null,    // 낚은 아이템 인덱스
+      animationPhase: 'idle',   // 'idle' | 'pulling' | 'caught' | 'modal'
+    },
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -147,6 +156,37 @@ export const useGameStore = create(
     clearGameResult: () =>
       set((draft) => {
         draft.gameResult = null;
+      }),
+
+    // Game ending animation actions
+    startGameEnding: (winnerTeam, caughtItemIndex) =>
+      set((draft) => {
+        draft.gameEndingState = {
+          isEnding: true,
+          showModal: false,
+          winnerTeam,
+          caughtItemIndex,
+          animationPhase: 'pulling',
+        };
+      }),
+
+    setGameEndingPhase: (phase) =>
+      set((draft) => {
+        draft.gameEndingState.animationPhase = phase;
+        if (phase === 'modal') {
+          draft.gameEndingState.showModal = true;
+        }
+      }),
+
+    closeGameEndingModal: () =>
+      set((draft) => {
+        draft.gameEndingState = {
+          isEnding: false,
+          showModal: false,
+          winnerTeam: null,
+          caughtItemIndex: null,
+          animationPhase: 'idle',
+        };
       }),
 
     // DevTools actions for testing

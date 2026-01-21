@@ -49,9 +49,6 @@ export default function FinishedView() {
             <h3 className="text-2xl font-bold text-orange-600">
               {roomInfo.teamAName || 'Team A'}
             </h3>
-            <h3 className="text-2xl font-bold text-orange-600">
-              {roomInfo.teamAName || 'Team A'}
-            </h3>
           </div>
 
           <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
@@ -112,9 +109,6 @@ export default function FinishedView() {
             <div className="w-12 h-12 rounded-full bg-cyan-500 flex items-center justify-center">
               <span className="text-white font-bold text-xl">B</span>
             </div>
-            <h3 className="text-2xl font-bold text-cyan-600">
-              {roomInfo.teamBName || 'Team B'}
-            </h3>
             <h3 className="text-2xl font-bold text-cyan-600">
               {roomInfo.teamBName || 'Team B'}
             </h3>

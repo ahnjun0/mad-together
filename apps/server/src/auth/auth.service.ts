@@ -4,6 +4,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class AuthService {
@@ -40,7 +42,7 @@ export class AuthService {
   // 2. 로그인 (Access + Refresh Token 발급)
   async loginWithGoogle(idToken: string) {
     const payload = await this.verifyGoogleToken(idToken);
-    
+
     const googleId = payload.sub;
     const googleName = payload.name || `User-${googleId.slice(-4)}`;
     const googlePicture = payload.picture; // 구글 프로필 이미지 URL
@@ -48,27 +50,39 @@ export class AuthService {
     // 유저 찾기 또는 생성
     let user = await this.prisma.user.findUnique({ where: { googleId } });
     if (!user) {
+      // 구글 이미지를 서버에 다운로드하여 저장
+      const localProfileImage = await this.downloadGoogleImage(googlePicture, googleId);
+
       user = await this.prisma.user.create({
-        data: { 
-          googleId, 
+        data: {
+          googleId,
           nickname: googleName,
-          profileImage: googlePicture // 최초 생성 시 구글 이미지를 기본값으로 설정
+          profileImage: localProfileImage // 서버에 저장된 이미지 경로 사용
         },
       });
+    } else if (user.profileImage?.startsWith('http')) {
+      // 기존 사용자인데 아직 구글 URL을 사용 중인 경우, 서버에 다운로드
+      const localProfileImage = await this.downloadGoogleImage(user.profileImage, googleId);
+      if (localProfileImage) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { profileImage: localProfileImage },
+        });
+      }
     }
 
     // 토큰 생성 및 반환
     const tokens = await this.getTokens(user.id, user.googleId, user.nickname);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
-    
-    return { 
-      ...tokens, 
-      user: { 
-        id: user.id, 
-        nickname: user.nickname, 
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
         googleName: googleName,
-        profileImage: user.profileImage // 현재 저장된 이미지 (구글 URL 혹은 업로드된 경로)
-      } 
+        profileImage: user.profileImage // 서버에 저장된 이미지 경로
+      }
     };
   }
 
@@ -112,7 +126,53 @@ export class AuthService {
   }
 
   // --- Helper Methods ---
-  
+
+  /**
+   * 구글 프로필 이미지를 다운로드하여 서버에 저장
+   * @param googlePictureUrl 구글 프로필 이미지 URL
+   * @param googleId 사용자 고유 ID (파일명에 사용)
+   * @returns 저장된 이미지의 상대 경로 또는 null
+   */
+  private async downloadGoogleImage(googlePictureUrl: string, googleId: string): Promise<string | null> {
+    if (!googlePictureUrl) return null;
+
+    try {
+      // 구글 이미지 다운로드
+      const response = await fetch(googlePictureUrl);
+      if (!response.ok) {
+        this.logger.warn(`Failed to fetch Google image: ${response.status}`);
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      // Content-Type에서 확장자 결정
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      let ext = '.jpg';
+      if (contentType.includes('png')) ext = '.png';
+      else if (contentType.includes('webp')) ext = '.webp';
+      else if (contentType.includes('gif')) ext = '.gif';
+
+      // 파일명 생성 및 저장
+      const filename = `google-${googleId}-${Date.now()}${ext}`;
+      const uploadDir = path.join(process.cwd(), 'uploads');
+      const filepath = path.join(uploadDir, filename);
+
+      // uploads 디렉토리가 없으면 생성
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      fs.writeFileSync(filepath, buffer);
+      this.logger.log(`Google image saved: ${filename}`);
+
+      return `/uploads/${filename}`;
+    } catch (error) {
+      this.logger.error(`Failed to download Google image: ${error.message}`);
+      return null;
+    }
+  }
+
   async updateRefreshToken(userId: string, refreshToken: string) {
     const hash = await bcrypt.hash(refreshToken, 10);
     await this.prisma.user.update({

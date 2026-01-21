@@ -40,6 +40,7 @@ export function usePcSocket() {
     setCastingPower,
     showAlert,
     setGameResult,
+    startGameEnding,
   } = useGameStore();
 
   useEffect(() => {
@@ -404,7 +405,9 @@ export function usePcSocket() {
         setScore(newScore);
 
         // Track shake event for fishing rod animation
-        if (data.event && data.event.team) {
+        // 게임 종료 연출 중에는 shake 이벤트를 처리하지 않음
+        const { gameEndingState: endingState } = useGameStore.getState();
+        if (data.event && data.event.team && !endingState.isEnding) {
           addShakeEvent(data.event.team);
           console.log('[Socket] 🎣 Shake event tracked for team:', data.event.team);
         }
@@ -424,6 +427,7 @@ export function usePcSocket() {
       console.log('[Socket] 🏁 Game ended:', {
         winnerTeam: data.winnerTeam,
         teamScores: data.teamScores,
+        caughtItemIndex: data.caughtItemIndex,
         playerScores: data.playerScores,
         mvp: data.mvp,
       });
@@ -442,7 +446,9 @@ export function usePcSocket() {
         mvp: data.mvp || null,
       });
 
-      setGameState('FINISHED');
+      // 바로 FINISHED로 가지 않고, 게임 종료 연출 시작
+      // PlayingView에서 애니메이션 후 모달을 표시하고, 종료 버튼으로 FINISHED로 이동
+      startGameEnding(data.winnerTeam, data.caughtItemIndex ?? 0);
     });
 
     // 게임 강제 종료 (Host 타임아웃 또는 Host 종료)

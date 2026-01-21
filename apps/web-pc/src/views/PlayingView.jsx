@@ -1,21 +1,54 @@
-import { motion } from 'framer-motion';
-import { useEffect, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, Suspense, useCallback } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { FishingRod3D } from '../components/FishingRod3D';
+import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fishingItems';
 import backgroundOcean from '../assets/background-ocean.png';
 
 // PC (Host) only view - Split screen with two fishing rods
 export default function PlayingView() {
-  const { score, roomInfo } = useGameStore();
+  const {
+    score,
+    roomInfo,
+    gameEndingState,
+    setGameEndingPhase,
+    closeGameEndingModal,
+    setGameState,
+  } = useGameStore();
 
   // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
   const totalScore = score.A + score.B;
   const fishPosition = totalScore > 0 ? score.A / totalScore : 0.5;
 
+  // 게임 종료 상태
+  const { isEnding, showModal, winnerTeam, caughtItemIndex, animationPhase } = gameEndingState;
+  const caughtItem = getItemByIndex(caughtItemIndex ?? 0);
+  const winnerTeamName = winnerTeam === 'A' ? (roomInfo.teamAName || 'A팀') : (roomInfo.teamBName || 'B팀');
+
+  // 승리 애니메이션 완료 시 모달 표시
+  const handleVictoryComplete = useCallback(() => {
+    if (animationPhase === 'pulling') {
+      setGameEndingPhase('modal');
+    }
+  }, [animationPhase, setGameEndingPhase]);
+
+  // 종료하기 버튼 클릭
+  const handleFinish = () => {
+    closeGameEndingModal();
+    setGameState('FINISHED');
+  };
+
   // Debug: Log score changes for real-time updates
   useEffect(() => {
     console.log('[PlayingView] Score updated:', score, 'Fish position:', fishPosition);
   }, [score, fishPosition]);
+
+  // Debug: Log game ending state
+  useEffect(() => {
+    if (isEnding) {
+      console.log('[PlayingView] Game ending state:', gameEndingState);
+    }
+  }, [isEnding, gameEndingState]);
 
   return (
     <div
@@ -87,7 +120,12 @@ export default function PlayingView() {
                 </div>
               }
             >
-              <FishingRod3D team="A" />
+              <FishingRod3D
+                team="A"
+                isEnding={isEnding}
+                isWinner={winnerTeam === 'A'}
+                onVictoryComplete={handleVictoryComplete}
+              />
             </Suspense>
 
             {/* Ocean overlay at bottom */}
@@ -137,7 +175,12 @@ export default function PlayingView() {
                 </div>
               }
             >
-              <FishingRod3D team="B" />
+              <FishingRod3D
+                team="B"
+                isEnding={isEnding}
+                isWinner={winnerTeam === 'B'}
+                onVictoryComplete={handleVictoryComplete}
+              />
             </Suspense>
 
             {/* Ocean overlay at bottom */}
@@ -145,6 +188,75 @@ export default function PlayingView() {
           </div>
         </div>
       </div>
+
+      {/* 게임 종료 결과 모달 */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 50 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+              className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl text-center"
+            >
+              {/* 승리 팀 표시 */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                className="text-6xl mb-4"
+              >
+                🎉
+              </motion.div>
+
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                <span className={winnerTeam === 'A' ? 'text-cyan-600' : 'text-orange-600'}>
+                  {winnerTeamName}
+                </span>
+                이(가)
+              </h2>
+
+              <p className="text-2xl font-bold text-gray-700 mb-6">
+                <span className={RARITY_COLORS[caughtItem.rarity]}>
+                  {caughtItem.name}
+                </span>
+                을(를) 낚았습니다!
+              </p>
+
+              {/* 낚은 아이템 이미지 */}
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.4, type: 'spring', stiffness: 150 }}
+                className={`inline-block text-9xl p-6 rounded-full ${RARITY_BG_COLORS[caughtItem.rarity]} mb-4`}
+              >
+                {caughtItem.emoji}
+              </motion.div>
+
+              <p className="text-gray-500 text-sm mb-8">
+                {caughtItem.description}
+              </p>
+
+              {/* 종료하기 버튼 */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                onClick={handleFinish}
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+              >
+                결과 보기
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
