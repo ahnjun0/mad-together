@@ -263,6 +263,25 @@ export class RoomsService {
     console.log(`[RoomsService] Player left room logic (DB record kept): ${playerId}`);
   }
 
+  // 플레이어 강제 제거 (Kick 기능용)
+  async removePlayer(roomId: string, playerId: string) {
+    const player = await this.prisma.player.findUnique({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      console.warn(`[RoomsService] Player not found for removal: ${playerId}`);
+      return;
+    }
+
+    // DB에서 플레이어 완전 삭제
+    await this.prisma.player.delete({
+      where: { id: playerId },
+    });
+
+    console.log(`[RoomsService] Player removed from DB: ${playerId}`);
+  }
+
   async getPlayersInRoom(roomId: string) {
     return this.prisma.player.findMany({
       where: { roomId },

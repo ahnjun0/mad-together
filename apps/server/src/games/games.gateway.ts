@@ -821,4 +821,69 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       await this.endGame(roomId, winner);
     }
   }
+
+  // 방 상태 요청 (각 View 마운트 시 최신 데이터 동기화용)
+  @SubscribeMessage('request_room_state')
+  async handleRequestRoomState(@ConnectedSocket() client: AuthenticatedSocket) {
+    const { roomId } = client;
+    if (!roomId) return;
+
+    await this.broadcastRoomState(roomId);
+  }
+
+  // 플레이어 강제 퇴장 (Host 전용, WAITING 상태에서만)
+  @SubscribeMessage('kick_player')
+  async handleKickPlayer(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { playerId: string },
+  ) {
+    const { roomId, isHost } = client;
+    if (!roomId || !isHost) {
+      client.emit('kick_error', { message: '권한이 없습니다.' });
+      return;
+    }
+
+    try {
+      const room = await this.roomsService.getRoomById(roomId);
+
+      // WAITING 상태에서만 kick 가능
+      if (room.status !== RoomStatus.WAITING) {
+        client.emit('kick_error', {
+          message: '대기 중일 때만 플레이어를 퇴장시킬 수 있습니다.',
+        });
+        return;
+      }
+
+      // 해당 플레이어의 소켓 찾기 및 강제 연결 해제
+      const sockets = await this.server.in(roomId).fetchSockets();
+      const targetSocket = sockets.find((s: any) => s.playerId === data.playerId);
+
+      if (targetSocket) {
+        // 플레이어에게 kick 알림 전송
+        targetSocket.emit('player_kicked', {
+          message: '호스트에 의해 방에서 퇴장되었습니다.',
+        });
+
+        // 소켓 강제 연결 해제
+        targetSocket.disconnect(true);
+        console.log(`[Gateway] Player kicked: ${data.playerId} from room ${roomId}`);
+      }
+
+      // DB에서 플레이어 제거
+      await this.roomsService.removePlayer(roomId, data.playerId);
+
+      // 방의 다른 플레이어들에게 알림
+      this.server.to(roomId).emit('player_left', {
+        playerId: data.playerId,
+      });
+
+      // 최신 방 상태 브로드캐스트
+      await this.broadcastRoomState(roomId);
+
+      console.log(`[Gateway] ✅ Player ${data.playerId} kicked successfully`);
+    } catch (error) {
+      console.error('[Gateway] ❌ kick_player error:', error);
+      client.emit('kick_error', { message: '플레이어 퇴장 처리 중 오류가 발생했습니다.' });
+    }
+  }
 }
