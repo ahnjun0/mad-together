@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { createRoom } from '../api/room';
 import { usePcSocket } from '../hooks/usePcSocket';
+import { useAudioPreload, useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
 import bgShip from '../assets/background-ship.jpg';
+import backgroundMusicDeck from '../assets/sounds/background_music_deck.mp3';
+import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 
 export default function HomeView() {
   const [roomName, setRoomName] = useState('');
@@ -17,6 +20,16 @@ export default function HomeView() {
 
   const { setRoomInfo, setGameState, accessToken, user, logout } = useGameStore();
   const { joinRoom, waitForConnection } = usePcSocket();
+
+  // 🎵 오디오 프리로딩 (배경음악 미리 로드)
+  useAudioPreload([backgroundMusicDeck, backgroundOcean]);
+
+  // 🎵 HomeView 배경음악 (볼륨 낮춤, 로딩 시간 고려)
+  useBackgroundMusic(backgroundMusicDeck, {
+    volume: 0.3,
+    loop: true,
+    autoPlay: true,
+  });
 
   const handleMaxPlayersChange = (e) => {
     const value = e.target.value;

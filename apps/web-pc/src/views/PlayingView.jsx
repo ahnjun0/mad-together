@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, Suspense, useCallback } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { FishingRod3D } from '../components/FishingRod3D';
 import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fishingItems';
 import backgroundOcean from '../assets/background-ocean.png';
+import backgroundOceanMusic from '../assets/sounds/background_ocean.mp3';
 
 // PC (Host) only view - Split screen with two fishing rods
 export default function PlayingView() {
@@ -15,6 +17,13 @@ export default function PlayingView() {
     closeGameEndingModal,
     setGameState,
   } = useGameStore();
+
+  // 🎵 PlayingView 배경음악 (작게 재생)
+  useBackgroundMusic(backgroundOceanMusic, {
+    volume: 0.2,
+    loop: true,
+    autoPlay: true,
+  });
 
   // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
   const totalScore = score.A + score.B;

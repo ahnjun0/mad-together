@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import TeamPanel from '../components/TeamPanel';
 import QRCodePanel from '../components/QRCodePanel';
 import GlassPanel from '../components/GlassPanel';
@@ -8,20 +9,32 @@ import GlossyButton from '../components/GlossyButton';
 import bgShip from '../assets/background-ship.jpg';
 import bgOnship from '../assets/background_onship.png';
 import backgroundOcean from '../assets/background-ocean.png';
+import backgroundFinishedLeft from '../assets/background_finished_left.png';
+import backgroundFinishedRight from '../assets/background_finished_right.png';
 import cinematicVideo from '../assets/cinematic.mp4';
+import backgroundMusicDeck from '../assets/sounds/background_music_deck.mp3';
 
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
   const { roomInfo, players } = useGameStore();
   const { startTutorial, joinRoom, terminateGame, isConnected: socketConnected } = usePcSocket();
+
+  // 🎵 WaitingView 배경음악
+  useBackgroundMusic(backgroundMusicDeck, {
+    volume: 0.4,
+    loop: true,
+    autoPlay: true,
+  });
   
   // ⚡️ [Preloading Logic]
   // WaitingView에서 이후 단계에 필요한 모든 주요 이미지/영상 자원을 미리 로딩
   useEffect(() => {
     const imageAssets = [
-      bgShip,          // 현재 대기 화면 배경
-      bgOnship,        // Tutorial / Casting 선박 뷰
-      backgroundOcean, // Casting / Playing 바다 뷰
+      bgShip,                   // 현재 대기 화면 배경
+      bgOnship,                 // Tutorial / Casting 선박 뷰
+      backgroundOcean,          // Casting / Playing 바다 뷰
+      backgroundFinishedLeft,   // Finished 화면 배경 (Team A 승리)
+      backgroundFinishedRight,  // Finished 화면 배경 (Team B 승리)
     ].filter(Boolean);
 
     const videoAssets = [

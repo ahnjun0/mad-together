@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { CastingRod3D } from '../components/CastingRod3D';
 import PlayerAvatar from '../components/PlayerAvatar';
 import GlassPanel from '../components/GlassPanel';
@@ -11,6 +12,7 @@ import timerSound from '../assets/sounds/timer_sound.mp3';
 import timerEndSound from '../assets/sounds/timer_sound_end.mp3';
 import castingHitSound from '../assets/sounds/casting_hit_sound.mp3';
 import fishingFloat from '../assets/fishing-float.png';
+import backgroundOceanMusic from '../assets/sounds/background_ocean.mp3';
 
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
@@ -27,6 +29,13 @@ export default function CastingView() {
   const tickAudioRef = useRef(null);
   const endAudioRef = useRef(null);
   const hitAudioRef = useRef(null);
+
+  // 🎵 CastingView 배경음악 (작게 재생)
+  useBackgroundMusic(backgroundOceanMusic, {
+    volume: 0.2,
+    loop: true,
+    autoPlay: true,
+  });
 
   // players가 배열인지 객체인지 확인하고 변환
   const teamA_players = Array.isArray(players)
@@ -78,9 +87,9 @@ export default function CastingView() {
         hitAudioRef.current.play().catch(e => console.warn('[CastingView] Hit sound play failed:', e));
       }
       
-      // 1초 후 Playing 화면으로 전환 (startCountdown 호출)
+      // 0.1초 후 게임 시작 (서버에서 즉시 처리)
       setTimeout(() => {
-        console.log('[CastingView] 🎮 Starting countdown after HIT');
+        console.log('[CastingView] 🎮 Starting game after HIT');
         startCountdown();
       }, 100);
     };
@@ -248,7 +257,7 @@ export default function CastingView() {
             {!hasCastingTimerStarted &&
               '🎣 Casting을 준비하세요. 카운트다운이 끝나면 힘껏 낚시대(휴대폰)을 던져주세요!'}
             {hasCastingTimerStarted && !isCastingStarted &&
-              '⏳ 서버 카운트다운 진행 중입니다...'}
+              '⏳ 카운트다운 진행 중입니다!'}
             {isCastingStarted && !showFloats &&
               '🚀 팀장이 캐스팅을 진행 중입니다!'}
             {showFloats && !showHit &&

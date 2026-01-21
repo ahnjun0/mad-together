@@ -2,14 +2,27 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '../api/room';
 
-export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sensorChecked, profileImage }) {
+export default function PlayerCard({ 
+  nickname, 
+  isLeader, 
+  isReady, 
+  teamColor, 
+  sensorChecked, 
+  profileImage,
+  score,        // 점수 (Finished 화면용)
+  isMVP,        // MVP 여부 (Finished 화면용)
+  showRank      // 순위 표시 (Finished 화면용)
+}) {
   const [imageError, setImageError] = useState(false);
   // 팀에 따른 텍스트/아이콘 색상 결정
   const colorClass = teamColor === 'team-a' ? 'text-team-a' : 'text-team-b';
   const bgClass = teamColor === 'team-a' ? 'bg-orange-100' : 'bg-cyan-100';
 
   // sensorChecked가 true일 때 녹색 테두리 + glow 효과
-  const borderClass = sensorChecked
+  // MVP일 때 노란색 테두리 + glow 효과
+  const borderClass = isMVP
+    ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)] ring-2 ring-yellow-400'
+    : sensorChecked
     ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)] ring-2 ring-green-400'
     : 'border-white';
 
@@ -29,6 +42,18 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
       ${sensorChecked ? 'animate-pulse' : ''}
     `}>
       <div className="flex items-center gap-3">
+        {/* MVP 아이콘 (Finished 화면용) */}
+        {isMVP && (
+          <span className="text-2xl animate-bounce">🏆</span>
+        )}
+        
+        {/* 순위 표시 (Finished 화면용) */}
+        {showRank !== undefined && (
+          <span className="font-black text-gray-600 text-lg w-8 text-center">
+            {showRank}.
+          </span>
+        )}
+        
         {/* 아바타 (프로필 이미지 또는 이니셜) */}
         <div
           className={`
@@ -65,6 +90,13 @@ export default function PlayerCard({ nickname, isLeader, isReady, teamColor, sen
         </div>
       </div>
 
+      {/* 점수 표시 (Finished 화면용) */}
+      {score !== undefined && (
+        <span className={`font-black text-xl ${colorClass}`}>
+          {score}pt
+        </span>
+      )}
+      
       {/* Ready 상태 배지 */}
       {isReady && (
         <span className="

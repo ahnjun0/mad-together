@@ -1,16 +1,25 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import SplitScreen from '../components/SplitScreen';
 import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
 import PlayerAvatar from '../components/PlayerAvatar';
 import bgOnship from '../assets/background_onship.png';
+import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 
 // PC (Host) only view - Sensor Check Phase
 export default function TutorialView() {
   const { players, roomInfo } = useGameStore();
   const { socket, startCinematic, terminateGame, isConnected: socketConnected } = usePcSocket();
+
+  // 🎵 TutorialView 배경음악
+  useBackgroundMusic(backgroundOcean, {
+    volume: 0.4,
+    loop: true,
+    autoPlay: true,
+  });
 
   // Host(PC 관리자)는 리스트에서 제외
   const filterNonHost = (list = []) => list.filter((p) => !p.isHost);

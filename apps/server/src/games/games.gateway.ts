@@ -700,7 +700,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!roomId) return;
 
     // 10초 카운트다운
-    let count = 10;
+    let count = 3;
     const interval = setInterval(() => {
       this.server.to(roomId).emit('countdown', { count });
       count--;
