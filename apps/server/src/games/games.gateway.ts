@@ -389,6 +389,65 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     }
   }
 
+  // Host가 게임을 초기화하고 대기방으로 복귀
+  @SubscribeMessage('reset_game')
+  async handleResetGame(@ConnectedSocket() client: AuthenticatedSocket) {
+    const { roomId, isHost } = client;
+    if (!roomId || !isHost) {
+      client.emit('reset_error', { message: '권한이 없습니다.' });
+      return;
+    }
+
+    try {
+      console.log(`[GamesGateway] 🔄 Resetting game for room ${roomId}`);
+
+      // 1. Room 상태를 WAITING으로 변경
+      await this.roomsService.updateRoomStatus(roomId, RoomStatus.WAITING);
+      const room = await this.roomsService.getRoomById(roomId);
+
+      // 2. Gateway 메모리 상태 초기화
+      this.gameStartTime.delete(roomId);
+      this.gamePlayerIds.delete(roomId);
+      this.castingWindowOpen.delete(roomId);
+      this.castingComplete.delete(`${roomId}:A`);
+      this.castingComplete.delete(`${roomId}:B`);
+      this.castingPower.delete(`${roomId}:A`);
+      this.castingPower.delete(`${roomId}:B`);
+
+      // 3. Redis 상태 초기화
+      // 팀 점수 초기화
+      await this.redis.resetTeamScores(roomId);
+      
+      // 플레이어 점수 초기화
+      const playerIds = room.players.map(p => p.id);
+      if (playerIds.length > 0) {
+        await this.redis.resetAllPlayerScores(roomId, playerIds);
+        
+        // 플레이어 상태 초기화 (Ready, Sensor, Leader 등은 유지하거나 초기화?)
+        // 보통 새 게임 시작 시 Ready는 해제, Sensor는 유지 or 해제
+        // 여기서는 Ready와 SensorChecked 모두 초기화
+        for (const pid of playerIds) {
+          await this.redis.setPlayerReady(roomId, pid, false);
+          // Leader는 유지
+        }
+      }
+
+      // Host Heartbeat 갱신 (연결 유지)
+      this.hostHeartbeat.set(roomId, Date.now());
+
+      // 4. 클라이언트들에게 알림
+      this.server.to(roomId).emit('game_reset');
+
+      // 5. 방 상태 브로드캐스트
+      await this.broadcastRoomState(roomId);
+
+      console.log(`[GamesGateway] ✅ Game reset complete for room ${roomId}`);
+    } catch (error) {
+      console.error('[GamesGateway] ❌ reset_game error:', error);
+      client.emit('reset_error', { message: '게임 초기화 중 오류가 발생했습니다.' });
+    }
+  }
+
   @SubscribeMessage('delegate_leader')
   async handleDelegateLeader(
     @ConnectedSocket() client: AuthenticatedSocket,

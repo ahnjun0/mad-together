@@ -623,6 +623,16 @@ export function usePcSocket() {
     }
   }, []);
 
+  // 게임 초기화 및 대기방 복귀 (Host 전용)
+  const resetGame = useCallback(() => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] 🔄 Emitting reset_game');
+      socketInstance.emit('reset_game');
+    } else {
+      console.warn('[Socket] ⚠️ Socket not connected, cannot reset game');
+    }
+  }, []);
+
   // 방 상태 요청 (각 View 마운트 시 최신 데이터 동기화용)
   const requestRoomState = useCallback(() => {
     if (socketInstance?.connected) {
@@ -644,6 +654,7 @@ export function usePcSocket() {
     startCastingTimer,
     startCinematic,
     terminateGame,
+    resetGame,
     kickPlayer,
     requestRoomState,
     waitForConnection,
