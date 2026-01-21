@@ -72,7 +72,7 @@ function FishingLine({ rodTipPosition, bendIntensity }) {
  * - Pump: Raise rod while pulling fish
  * - Wind: Lower rod while reeling
  */
-function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
+function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner = false, isEnding = false }) {
   const { scene } = useGLTF(rodGlb);
   const groupRef = useRef();
   const bonesRef = useRef([]);
@@ -83,6 +83,9 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
     progress: 0,
     isAnimating: false,
     currentShoulder: 1, // 1: left, -1: right
+    // 승리 애니메이션 상태
+    victoryProgress: 0,
+    isVictoryAnimating: false,
   });
 
   // Animation output values for fishing line
@@ -150,6 +153,87 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
 
     const animState = animationStateRef.current;
 
+    // === 승리 애니메이션 (게임 종료 시) ===
+    if (isEnding && isWinner) {
+      // 승리 애니메이션 시작
+      if (!animState.isVictoryAnimating) {
+        animState.isVictoryAnimating = true;
+        animState.victoryProgress = 0;
+        animState.isAnimating = false; // 기존 애니메이션 중지
+      }
+
+      // 천천히 낚싯대 들어올리기 (2초 동안)
+      animState.victoryProgress = Math.min(animState.victoryProgress + delta * 0.5, 1);
+      const progress = animState.victoryProgress;
+
+      // 부드러운 이징
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      // 낚싯대 위치: 위로 들어올리기
+      if (groupRef.current) {
+        groupRef.current.position.y = eased * 0.8;
+        groupRef.current.rotation.x = -eased * 0.3;
+      }
+
+      // 루트 본 회전: 낚싯대를 크게 들어올림
+      if (bones[0]) {
+        bones[0].rotation.x = -eased * (60 * DEG_TO_RAD);
+      }
+
+      // 낚싯대 휘어짐 (물고기 무게로 약간 휘어짐)
+      const bendAngle = eased * (20 * DEG_TO_RAD);
+      bones.forEach((bone, index) => {
+        if (!bone || index === 0) return;
+        bone.rotation.z = -bendAngle * (index / (bones.length - 1));
+      });
+
+      // Update for victory state
+      animValuesRef.current.bendIntensity = eased * 0.8;
+      animValuesRef.current.sideOffset = 0;
+
+      // 낚싯대 끝 위치 업데이트
+      if (onTipPositionUpdate && tipBoneRef.current) {
+        tipBoneRef.current.getWorldPosition(tipWorldPos);
+        onTipPositionUpdate({
+          x: tipWorldPos.x,
+          y: tipWorldPos.y,
+          z: tipWorldPos.z,
+          bendIntensity: animValuesRef.current.bendIntensity,
+          sideOffset: 0,
+          victoryProgress: progress, // 승리 애니메이션 진행도 전달
+        });
+      }
+
+      // Update skeleton
+      if (skinnedMeshRef.current?.skeleton) {
+        skinnedMeshRef.current.skeleton.update();
+      }
+      return; // 승리 애니메이션 중에는 일반 애니메이션 스킵
+    }
+
+    // 승리 애니메이션이 끝난 팀 (패배 팀) - idle 상태 유지
+    if (isEnding && !isWinner) {
+      // Idle 상태로 서서히 전환
+      if (groupRef.current) {
+        groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, 0, delta * 2);
+        groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, 0, delta * 2);
+      }
+      if (bones[0]) {
+        bones[0].rotation.x = THREE.MathUtils.lerp(bones[0].rotation.x, 0, delta * 2);
+        bones[0].rotation.z = THREE.MathUtils.lerp(bones[0].rotation.z, 0, delta * 2);
+      }
+      const idleAngle = 5 * DEG_TO_RAD;
+      bones.forEach((bone, index) => {
+        if (!bone || index === 0) return;
+        bone.rotation.z = THREE.MathUtils.lerp(bone.rotation.z, -idleAngle, delta * 2);
+      });
+      if (skinnedMeshRef.current?.skeleton) {
+        skinnedMeshRef.current.skeleton.update();
+      }
+      return;
+    }
+
+    // === 일반 게임 중 애니메이션 ===
     // Start animation when intensity is high enough
     if (intensity > 0.05 && !animState.isAnimating) {
       animState.isAnimating = true;
@@ -317,8 +401,13 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate }) {
 
 /**
  * FishingRod3D - Complete 3D fishing scene for one team (PLAYING 전용)
+ * @param {string} team - 'A' or 'B'
+ * @param {string} className - 추가 CSS 클래스
+ * @param {boolean} isWinner - 이 팀이 승리 팀인지
+ * @param {boolean} isEnding - 게임 종료 연출 중인지
+ * @param {function} onVictoryComplete - 승리 애니메이션 완료 콜백
  */
-export function FishingRod3D({ team, className = '' }) {
+export function FishingRod3D({ team, className = '', isWinner = false, isEnding = false, onVictoryComplete }) {
   const mirrored = team === 'B';
   const [tipPosition, setTipPosition] = useState({
     x: 0,
@@ -326,7 +415,15 @@ export function FishingRod3D({ team, className = '' }) {
     z: -0.5,
     bendIntensity: 0,
     sideOffset: 0,
+    victoryProgress: 0,
   });
+
+  // 승리 애니메이션 완료 감지
+  useEffect(() => {
+    if (isEnding && isWinner && tipPosition.victoryProgress >= 1 && onVictoryComplete) {
+      onVictoryComplete();
+    }
+  }, [isEnding, isWinner, tipPosition.victoryProgress, onVictoryComplete]);
 
   return (
     <div className={`w-full h-full ${className}`}>
@@ -359,6 +456,8 @@ export function FishingRod3D({ team, className = '' }) {
           team={team}
           mirrored={mirrored}
           onTipPositionUpdate={setTipPosition}
+          isWinner={isWinner}
+          isEnding={isEnding}
         />
 
         {/* Fishing Line - from rod tip to water target */}

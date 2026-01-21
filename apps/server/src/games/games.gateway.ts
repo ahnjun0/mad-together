@@ -755,9 +755,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     const mvpPlayer = room.players.find(p => p.id === mvpPlayerId);
 
+    // 랜덤 아이템 선택 (프론트엔드에서 아이템 목록 정의)
+    const ITEM_COUNT = 10; // 프론트엔드 아이템 목록 개수와 일치해야 함
+    const caughtItemIndex = Math.floor(Math.random() * ITEM_COUNT);
+
     this.server.to(roomId).emit('game_ended', {
       winnerTeam,
       teamScores: result.scores,
+      caughtItemIndex, // 낚은 아이템 인덱스
       playerScores: room.players.map(p => ({
         playerId: p.id,
         nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임

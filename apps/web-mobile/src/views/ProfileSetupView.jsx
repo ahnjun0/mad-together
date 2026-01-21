@@ -125,6 +125,16 @@ export default function ProfileSetupView() {
 
   return (
     <div className="w-full h-full flex items-center justify-center p-6 bg-slate-900">
+      {/* 업로드 중 풀스크린 오버레이 모달 */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-white/20 p-8 rounded-2xl text-center shadow-2xl">
+            <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-white font-medium text-lg">프로필 저장 중...</p>
+            <p className="text-blue-200 text-sm mt-2">잠시만 기다려주세요</p>
+          </div>
+        </div>
+      )}
       <div className="w-full max-sm bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl shadow-xl">
         <h1 className="text-2xl font-bold text-white text-center mb-6">프로필 설정</h1>
         
@@ -137,6 +147,7 @@ export default function ProfileSetupView() {
                   src={getImageUrl(previewUrl)}
                   alt="Preview"
                   className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
                   onError={() => {
                     setImageError(true);
                     setError('이미지를 표시할 수 없습니다. 다른 이미지를 선택해주세요.');
