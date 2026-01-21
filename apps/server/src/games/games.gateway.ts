@@ -690,7 +690,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         // 캐스팅 완료 상태 초기화
         this.castingComplete.delete(teamAKey);
         this.castingComplete.delete(teamBKey);
-      }, 5000);
+      }, 2000);
     }
   }
 
