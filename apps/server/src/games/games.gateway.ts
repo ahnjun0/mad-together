@@ -48,11 +48,21 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   private heartbeatCleanupInterval: NodeJS.Timeout | null = null;
   // Casting completion tracking: roomId:team -> boolean
   private castingComplete: Map<string, boolean> = new Map();
+  // Casting power tracking: roomId:team -> power (0~100)
+  private castingPower: Map<string, number> = new Map();
 
   // Helper method to broadcast current room state to all clients in the room
   private async broadcastRoomState(roomId: string) {
     const room = await this.roomsService.getRoomById(roomId);
-    const playerIds = room.players.map(p => p.id);
+
+    // WAITING 상태에서는 연결된 플레이어만 포함
+    let filteredPlayers = room.players;
+    if (room.status === RoomStatus.WAITING) {
+      const connectedPlayerIds = await this.redis.getConnectedPlayers(roomId);
+      filteredPlayers = room.players.filter(p => connectedPlayerIds.includes(p.id));
+    }
+
+    const playerIds = filteredPlayers.map(p => p.id);
 
     const [readyStates, playerScores, teamScores] = await Promise.all([
       Promise.all(
@@ -78,7 +88,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         A: teamScores.A || 0,
         B: teamScores.B || 0,
       },
-      players: room.players.map(p => ({
+      players: filteredPlayers.map(p => ({
         id: p.id,
         nickname: (p as any).nickname,
         profileImage: (p as any).profileImage,
@@ -164,6 +174,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       this.gameStartTime.delete(roomId);
       this.gamePlayerIds.delete(roomId);
       this.castingWindowOpen.delete(roomId);
+      // 캐스팅 관련 상태 정리
+      this.castingComplete.delete(`${roomId}:A`);
+      this.castingComplete.delete(`${roomId}:B`);
+      this.castingPower.delete(`${roomId}:A`);
+      this.castingPower.delete(`${roomId}:B`);
 
       console.log(`[GamesGateway] 🏁 Game terminated: ${roomId}, reason: ${reason}`);
     } catch (error) {
@@ -230,12 +245,22 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     }
 
     if (client.roomId && client.playerId) {
+      // Redis에서 플레이어 연결 해제 기록
+      await this.redis.setPlayerDisconnected(client.roomId, client.playerId);
+
       // 리더 위임 로직
       const room = await this.roomsService.getRoomById(client.roomId);
       const player = room.players.find(p => p.id === client.playerId);
 
       if (player && (player as any).isLeader && player.team) {
-        const newLeader = await this.roomsService.delegateLeader(client.roomId, player.team, player.id);
+        // 연결된 플레이어 중에서 새 리더를 선정
+        const connectedPlayerIds = await this.redis.getConnectedPlayers(client.roomId);
+        const newLeader = await this.roomsService.delegateLeaderToConnected(
+          client.roomId,
+          player.team,
+          player.id,
+          connectedPlayerIds
+        );
         if (newLeader) {
           // Redis 상태 업데이트
           await Promise.all([
@@ -254,6 +279,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       this.server.to(client.roomId).emit('player_disconnected', {
         playerId: client.playerId,
       });
+
+      // 전체 방 상태 브로드캐스트 (연결된 플레이어만 포함)
+      await this.broadcastRoomState(client.roomId);
     }
   }
 
@@ -295,6 +323,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       client.nickname = (player as any).nickname; // Player 테이블의 고정된 닉네임
       client.team = player.team || undefined;
 
+      // Redis에 플레이어 연결 상태 기록
+      await this.redis.setPlayerConnected(roomId, playerId!);
+
       // 방의 다른 사람들에게 알림 (기본 정보 포함)
       client.to(roomId).emit('player_joined', {
         playerId,
@@ -306,54 +337,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       });
     }
 
-    const playerIds = room.players.map(p => p.id);
-
-    // Redis에서 실시간 상태 가져오기
-    const [readyStates, playerScores, teamScores] = await Promise.all([
-      Promise.all(
-        playerIds.map(async (id) => ({
-          playerId: id,
-          isReady: await this.redis.getPlayerReady(roomId, id),
-          sensorChecked: await this.redis.getSensorChecked(roomId, id),
-        })),
-      ),
-      this.redis.getAllPlayerScores(roomId, playerIds),
-      this.redis.getTeamScores(roomId), // 팀 점수 조회 추가
-    ]);
-
-    // room_state 데이터 구성 - Player 테이블의 고정된 닉네임 사용
-    const roomStateData = {
-      room: {
-        id: room.id,
-        code: room.code,
-        status: room.status,
-        teamAName: room.teamAName,
-        teamBName: room.teamBName,
-      },
-      // 팀 점수 (PLAYING/FINISHED 상태에서 재접속 시 점수 동기화용)
-      teamScores: {
-        A: teamScores.A || 0,
-        B: teamScores.B || 0,
-      },
-      players: room.players.map(p => ({
-        id: p.id,
-        nickname: (p as any).nickname, // Player 테이블의 고정된 닉네임
-        // Player.profileImage가 없을 경우 User.profileImage를 fallback으로 사용
-        profileImage: (p as any).profileImage || (p as any).user?.profileImage || null,
-        team: p.team,
-        isLeader: (p as any).isLeader,
-        score: playerScores.get(p.id) || 0,
-        ...readyStates.find(rs => rs.playerId === p.id),
-      })),
-    };
-
-    // 새로 입장한 클라이언트에게 전송
-    client.emit('room_state', roomStateData);
-
-    // Player 입장 시 전체 방에 브로드캐스트 (Host 입장은 브로드캐스트 불필요)
-    if (!isHost) {
-      this.server.to(roomId).emit('room_state', roomStateData);
-    }
+    // 전체 방 상태 브로드캐스트 (연결된 플레이어만 포함)
+    await this.broadcastRoomState(roomId);
   }
 
   @SubscribeMessage('leave_room')
@@ -448,12 +433,21 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!roomId || !playerId) return;
 
     try {
-      // room의 maxPlayers를 가져와야 함. 
+      // Ready 상태인 플레이어는 팀 변경 불가
+      const isReady = await this.redis.getPlayerReady(roomId, playerId);
+      if (isReady) {
+        client.emit('team_change_blocked', {
+          message: '준비 완료 상태에서는 팀을 변경할 수 없습니다. 먼저 준비를 취소해주세요.',
+        });
+        return;
+      }
+
+      // room의 maxPlayers를 가져와야 함.
       // 최적화를 위해 Redis에 저장된 값을 쓰거나, DB에서 해당 필드만 조회하는 것이 좋음.
-      // 현재는 RedisService에 관련 메서드가 없으므로, RoomsService의 selectTeam 호출 시 
+      // 현재는 RedisService에 관련 메서드가 없으므로, RoomsService의 selectTeam 호출 시
       // 기본값 10을 사용하거나, 필요하다면 캐싱된 값을 사용하도록 개선 필요.
       // 여기서는 일단 기본값 10으로 호출하고, 추후 Room 생성 시 Redis에 maxPlayers 저장 권장.
-      
+
       const player = await this.roomsService.selectTeam(roomId, playerId, data.team, 10);
       client.team = player.team || undefined;
 
@@ -467,6 +461,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         team: player.team,
         isLeader: player.isLeader, // 리더 여부 추가 전송
       });
+
+      // 전체 방 상태 브로드캐스트 (팀 변경 즉시 반영)
+      await this.broadcastRoomState(roomId);
     } catch (error) {
       if (error.message && error.message.includes('is full')) {
          client.emit('team_full', {
@@ -564,6 +561,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const { roomId } = client;
     if (!roomId) return;
 
+    // 연결되지 않은 플레이어 정리 (WAITING → TUTORIAL 전환 시)
+    const room = await this.roomsService.getRoomById(roomId);
+    const connectedPlayerIds = await this.redis.getConnectedPlayers(roomId);
+    const disconnectedPlayers = room.players.filter(p => !connectedPlayerIds.includes(p.id));
+
+    // 연결되지 않은 플레이어 DB에서 삭제
+    if (disconnectedPlayers.length > 0) {
+      console.log(`[Gateway] Removing ${disconnectedPlayers.length} disconnected players before TUTORIAL`);
+      await this.roomsService.removeDisconnectedPlayers(
+        roomId,
+        disconnectedPlayers.map(p => p.id)
+      );
+    }
+
+    // 연결된 플레이어들의 Ready 상태 초기화 (새 단계 시작)
+    for (const playerId of connectedPlayerIds) {
+      await this.redis.setPlayerReady(roomId, playerId, false);
+    }
+
     await this.roomsService.updateRoomStatus(roomId, (RoomStatus as any).TUTORIAL);
     await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('tutorial_started');
@@ -652,6 +668,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       clampedPower,
     });
 
+    // 팀의 최종 casting power 값 저장 (캐스팅 중 마지막 값이 최종 값)
+    const powerKey = `${roomId}:${team}`;
+    this.castingPower.set(powerKey, clampedPower);
+
     this.server.to(roomId).emit('cast_result', {
       team,
       power: clampedPower,
@@ -724,14 +744,50 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     // 팀 인원 수 기반 goalScore 설정 (한 팀 인원 * 50)
     const teamACount = room.players.filter(p => p.team === Team.A).length;
+    const teamBCount = room.players.filter(p => p.team === Team.B).length;
     const goalScore = teamACount * 50;
     await this.redis.setGoalScore(roomId, goalScore);
+
+    // 캐스팅 승자에게 보너스 점수 적용 (팀원 1인당 2점)
+    const teamAPowerKey = `${roomId}:A`;
+    const teamBPowerKey = `${roomId}:B`;
+    const teamAPower = this.castingPower.get(teamAPowerKey) || 0;
+    const teamBPower = this.castingPower.get(teamBPowerKey) || 0;
+
+    let castingWinner: Team | null = null;
+    let bonusScore = 0;
+
+    if (teamAPower > teamBPower) {
+      castingWinner = Team.A;
+      bonusScore = teamACount * 2; // 팀원 1인당 2점
+    } else if (teamBPower > teamAPower) {
+      castingWinner = Team.B;
+      bonusScore = teamBCount * 2; // 팀원 1인당 2점
+    }
+    // 동점인 경우 보너스 없음
+
+    if (castingWinner && bonusScore > 0) {
+      console.log(`[Gateway] Casting winner: Team ${castingWinner}, bonus: ${bonusScore} points`);
+      console.log(`[Gateway] Casting power - A: ${teamAPower}, B: ${teamBPower}`);
+      await this.redis.incrementTeamScore(roomId, castingWinner, bonusScore);
+    }
+
+    // 캐스팅 power 데이터 정리
+    this.castingPower.delete(teamAPowerKey);
+    this.castingPower.delete(teamBPowerKey);
 
     await this.gamesService.startGame(roomId);
     this.gameStartTime.set(roomId, new Date());
 
+    // 보너스 점수가 적용된 후 현재 점수를 클라이언트에 알림
+    const teamScores = await this.redis.getTeamScores(roomId);
+
     await this.broadcastRoomState(roomId);
-    this.server.to(roomId).emit('game_started');
+    this.server.to(roomId).emit('game_started', {
+      castingWinner,
+      bonusScore,
+      initialScores: teamScores,
+    });
   }
 
   private async endGame(roomId: string, winnerTeam: Team) {

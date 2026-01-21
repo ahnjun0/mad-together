@@ -244,10 +244,61 @@ export class RoomsService {
     return null;
   }
 
+  // 리더 위임 (연결된 플레이어 중에서만)
+  async delegateLeaderToConnected(
+    roomId: string,
+    team: Team,
+    currentLeaderId: string,
+    connectedPlayerIds: string[]
+  ) {
+    // 연결된 플레이어 중에서 같은 팀의 다음 리더 찾기
+    const nextLeader = await this.prisma.player.findFirst({
+      where: {
+        roomId,
+        team,
+        id: {
+          not: currentLeaderId,
+          in: connectedPlayerIds // 연결된 플레이어만
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (nextLeader) {
+      const [_, updatedLeader] = await this.prisma.$transaction([
+        this.prisma.player.update({
+          where: { id: currentLeaderId },
+          data: { ...({ isLeader: false } as any) }
+        }),
+        this.prisma.player.update({
+          where: { id: nextLeader.id },
+          data: { ...({ isLeader: true } as any) },
+          include: { user: true }
+        })
+      ]);
+      return updatedLeader;
+    }
+    return null;
+  }
+
   async updateRoomStatus(roomId: string, status: RoomStatus) {
     return this.prisma.room.update({
       where: { id: roomId },
       data: { status },
+    });
+  }
+
+  // 연결되지 않은 플레이어 삭제
+  async removeDisconnectedPlayers(roomId: string, playerIds: string[]) {
+    if (playerIds.length === 0) return;
+
+    console.log(`[RoomsService] Removing disconnected players: ${playerIds.join(', ')}`);
+
+    await this.prisma.player.deleteMany({
+      where: {
+        roomId,
+        id: { in: playerIds }
+      }
     });
   }
 

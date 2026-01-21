@@ -156,6 +156,8 @@ export class RedisService implements OnModuleDestroy {
       await this.client.del(...playerKeys);
     }
     await this.client.del(this.roomKey(roomId));
+    // 연결된 플레이어 목록도 정리
+    await this.client.del(this.connectedPlayersKey(roomId));
   }
 
   // 모든 플레이어가 준비되었는지 확인
@@ -172,5 +174,36 @@ export class RedisService implements OnModuleDestroy {
       playerIds.map(id => this.getSensorChecked(roomId, id))
     );
     return results.every(checked => checked === true);
+  }
+
+  // ============ 플레이어 연결 상태 관리 ============
+
+  private connectedPlayersKey(roomId: string) {
+    return `room:${roomId}:connected`;
+  }
+
+  // 플레이어 연결 상태 설정
+  async setPlayerConnected(roomId: string, playerId: string) {
+    await this.client.sadd(this.connectedPlayersKey(roomId), playerId);
+  }
+
+  // 플레이어 연결 해제
+  async setPlayerDisconnected(roomId: string, playerId: string) {
+    await this.client.srem(this.connectedPlayersKey(roomId), playerId);
+  }
+
+  // 연결된 플레이어 목록 조회
+  async getConnectedPlayers(roomId: string): Promise<string[]> {
+    return this.client.smembers(this.connectedPlayersKey(roomId));
+  }
+
+  // 플레이어가 연결되어 있는지 확인
+  async isPlayerConnected(roomId: string, playerId: string): Promise<boolean> {
+    return (await this.client.sismember(this.connectedPlayersKey(roomId), playerId)) === 1;
+  }
+
+  // 연결된 플레이어 목록 초기화
+  async clearConnectedPlayers(roomId: string) {
+    await this.client.del(this.connectedPlayersKey(roomId));
   }
 }
