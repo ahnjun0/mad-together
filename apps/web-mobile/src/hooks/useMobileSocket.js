@@ -144,6 +144,13 @@ export function useMobileSocket() {
       alert(data.message || '준비 완료 상태에서는 팀을 변경할 수 없습니다.');
     });
 
+    // 호스트에 의해 강제 퇴장
+    socket.on('player_kicked', (data) => {
+      console.log('[Mobile] 🦵 Player kicked:', data);
+      useMobileStore.getState().showKickModal(data.message);
+      // 소켓 연결 해제는 서버에서 처리하므로 여기서는 모달만 표시
+    });
+
     // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)
     // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
