@@ -18,9 +18,29 @@ const ShakeItem = ({ item, onExpire }) => {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: 20, scale: 0.8 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: -20, scale: 0.5, transition: { duration: 0.2 } }}
+      initial={{ opacity: 0, x: 50, scale: 0.5 }}
+      animate={{ 
+        opacity: 1, 
+        x: 0, 
+        scale: 1,
+        transition: { 
+          type: "spring", 
+          stiffness: 500, 
+          damping: 30,
+          mass: 1,
+          delay: 0.15 
+        } 
+      }}
+      exit={{ 
+        opacity: 0, 
+        scale: 0, 
+        transition: { duration: 0.15 } 
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 500,
+        damping: 30
+      }}
       className="flex flex-col items-center bg-black/30 rounded-lg p-1 min-w-[60px] backdrop-blur-sm border border-white/20"
     >
       <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-300 border-2 border-white mb-1">
