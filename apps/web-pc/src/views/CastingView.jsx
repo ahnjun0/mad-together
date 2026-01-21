@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
 import { CastingRod3D } from '../components/CastingRod3D';
 import PlayerAvatar from '../components/PlayerAvatar';
+import GlassPanel from '../components/GlassPanel';
 import backgroundOnship from '../assets/background_onship.png';
 import backgroundOcean from '../assets/background-ocean.png';
 import timerSound from '../assets/sounds/timer_sound.mp3';
 import timerEndSound from '../assets/sounds/timer_sound_end.mp3';
+import castingHitSound from '../assets/sounds/casting_hit_sound.mp3';
+import fishingFloat from '../assets/fishing-float.png';
 
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
@@ -17,8 +20,11 @@ export default function CastingView() {
   const [teamBCasted, setTeamBCasted] = useState(false);
   const [castTriggered, setCastTriggered] = useState(false);
   const [hasCastingTimerStarted, setHasCastingTimerStarted] = useState(false);
+  const [showFloats, setShowFloats] = useState(false); // 낚시찌 표시 여부
+  const [showHit, setShowHit] = useState(false); // HIT 효과 표시 여부
   const tickAudioRef = useRef(null);
   const endAudioRef = useRef(null);
+  const hitAudioRef = useRef(null);
 
   // players가 배열인지 객체인지 확인하고 변환
   const teamA_players = Array.isArray(players)
@@ -44,19 +50,43 @@ export default function CastingView() {
         setTeamBCasted(true);
         setCastTriggered(true);
       }
+      
+      // 양 팀 모두 캐스팅 완료 시 낚시찌 표시
+      if ((data.team === 'A' && teamBCasted) || (data.team === 'B' && teamACasted)) {
+        setShowFloats(true);
+      }
+    };
+
+    const handleCastingHit = () => {
+      console.log('[CastingView] 🎯 Casting HIT!');
+      setShowHit(true);
+      
+      // HIT 효과음 재생
+      if (hitAudioRef.current) {
+        hitAudioRef.current.currentTime = 0;
+        hitAudioRef.current.play().catch(e => console.warn('[CastingView] Hit sound play failed:', e));
+      }
+      
+      // 0.5초 후 Playing 화면으로 전환 (startCountdown 호출)
+      setTimeout(() => {
+        startCountdown();
+      }, 500);
     };
 
     socket.on('team_casted', handleTeamCasted);
+    socket.on('casting_hit', handleCastingHit);
 
     return () => {
       socket.off('team_casted', handleTeamCasted);
+      socket.off('casting_hit', handleCastingHit);
     };
-  }, [socket]);
+  }, [socket, teamACasted, teamBCasted, startCountdown]);
 
-  // 타이머 효과음 초기화
+  // 타이머 및 HIT 효과음 초기화
   useEffect(() => {
     tickAudioRef.current = new Audio(timerSound);
     endAudioRef.current = new Audio(timerEndSound);
+    hitAudioRef.current = new Audio(castingHitSound);
   }, []);
 
   // 캐스팅 카운트다운 변경 시 효과음 재생
@@ -90,6 +120,21 @@ export default function CastingView() {
 
   const canStartCountdown = teamACasted && teamBCasted;
   const hasBothCasted = canStartCountdown;
+  
+  // 양 팀 캐스팅 완료 시 낚시찌 표시
+  useEffect(() => {
+    if (hasBothCasted) {
+      setShowFloats(true);
+    }
+  }, [hasBothCasted]);
+  
+  // Power에 따른 낚시찌 Y 위치 계산 (power 0~100 → 화면 세로의 1/20 차이)
+  // 화면 높이 기준으로 바다 위에 위치하도록 조정
+  const calculateFloatY = (power) => {
+    const basePosPercent = 60; // 기본 위치 (화면 상단에서 55%)
+    const powerOffset = (power / 100) * 5; // 0~5% 변화
+    return `${basePosPercent + powerOffset}%`;
+  };
 
   // 선박뷰 ↔ 바다뷰 전환:
   // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후: 선박뷰
@@ -130,7 +175,7 @@ export default function CastingView() {
           <div className="px-4 py-2 rounded-2xl bg-white/90 border-2 border-orange-400 shadow-xl flex items-center gap-2">
             <span className="text-xl">🔥</span>
             <span className="text-sm font-game text-gray-800">
-              Team A Power&nbsp;
+              {roomInfo.teamAName || 'Team A'} Power&nbsp;
               <span className="font-black text-orange-500 text-lg">
                 {Math.round(castingPower.A)}
               </span>
@@ -148,7 +193,7 @@ export default function CastingView() {
           <div className="px-4 py-2 rounded-2xl bg-white/90 border-2 border-cyan-400 shadow-xl flex items-center gap-2">
             <span className="text-xl">🌊</span>
             <span className="text-sm font-game text-gray-800">
-              Team B Power&nbsp;
+              {roomInfo.teamBName || 'Team B'} Power&nbsp;
               <span className="font-black text-cyan-500 text-lg">
                 {Math.round(castingPower.B)}
               </span>
@@ -218,6 +263,104 @@ export default function CastingView() {
           </div>
         </div>
       )}
+
+      {/* 낚시찌 애니메이션 - 양 팀 캐스팅 완료 후 표시 */}
+      <AnimatePresence>
+        {showFloats && hasBothCasted && (
+          <>
+            {/* Team A 낚시찌 */}
+            <motion.div
+              className="absolute left-[25%] z-30 pointer-events-none"
+              style={{ top: calculateFloatY(castingPower.A || 0) }}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                y: [0, -4, 0, 4, 0], // 위아래 움직임
+              }}
+              transition={{
+                y: {
+                  repeat: Infinity,
+                  duration: 2,
+                  ease: "easeInOut"
+                },
+                opacity: { duration: 0.3 },
+                scale: { duration: 0.3 }
+              }}
+            >
+              <img src={fishingFloat} alt="fishing float A" className="w-12 h-16 drop-shadow-lg" />
+            </motion.div>
+
+            {/* Team B 낚시찌 */}
+            <motion.div
+              className="absolute left-[75%] z-30 pointer-events-none"
+              style={{ top: calculateFloatY(castingPower.B || 0) }}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                y: [0, -4, 0, 4, 0], // 위아래 움직임
+              }}
+              transition={{
+                y: {
+                  repeat: Infinity,
+                  duration: 2,
+                  ease: "easeInOut",
+                  delay: 0.3 // 약간 시간차
+                },
+                opacity: { duration: 0.3 },
+                scale: { duration: 0.3 }
+              }}
+            >
+              <img src={fishingFloat} alt="fishing float B" className="w-12 h-16 drop-shadow-lg" />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* HIT 효과 패널 - 5초 후 표시 */}
+      <AnimatePresence>
+        {showHit && (
+          <motion.div
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/30"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ 
+                scale: [0.5, 1.2, 1.0],
+                opacity: [0, 1, 1]
+              }}
+              transition={{ 
+                duration: 0.5,
+                times: [0, 0.6, 1],
+                ease: "easeOut"
+              }}
+            >
+              <GlassPanel className="px-20 py-16" border="white">
+                <motion.h1 
+                  className="text-9xl font-black text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.8)]"
+                  animate={{ 
+                    textShadow: [
+                      "0 0 30px rgba(250,204,21,0.8)",
+                      "0 0 60px rgba(250,204,21,1)",
+                      "0 0 30px rgba(250,204,21,0.8)"
+                    ]
+                  }}
+                  transition={{
+                    duration: 0.3,
+                    repeat: 1
+                  }}
+                >
+                  HIT!
+                </motion.h1>
+              </GlassPanel>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 하단 좌측: 게임 종료 버튼
       <button

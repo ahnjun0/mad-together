@@ -57,8 +57,9 @@ export default function InGameView() {
       !hasCasted
     ) {
       // CASTING: shake 감지 시 현재까지 추적한 최대 power로 캐스팅
+      // rawPower를 0~100 범위로 정규화 (rawPower / 2)
       const rawPower = castingMaxPower;
-      const calcPower = Math.min(rawPower ** 2, 1000);
+      const calcPower = Math.min(rawPower / 2, 100);
       const normalizedPower = Math.round(calcPower);
 
       console.log('[Mobile] 🎣 Casting by first shake', {

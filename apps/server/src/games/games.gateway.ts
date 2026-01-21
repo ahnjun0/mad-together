@@ -46,6 +46,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   private hostHeartbeat: Map<string, number> = new Map();
   private readonly HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 1분
   private heartbeatCleanupInterval: NodeJS.Timeout | null = null;
+  // Casting completion tracking: roomId:team -> boolean
+  private castingComplete: Map<string, boolean> = new Map();
 
   // Helper method to broadcast current room state to all clients in the room
   private async broadcastRoomState(roomId: string) {
@@ -638,9 +640,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!isLeader) return;
 
     // Power 값은 모바일에서 0~100 범위로 정규화되어 오므로
-    // 서버에서는 그대로 중계하되, 방어적으로 클램핑
+    // 서버에서는 그대로 중계하되, 방어적으로 클램핑 (0~100)
     const rawPower = typeof data.power === 'number' ? data.power : 0;
-    const clampedPower = Math.max(0, Math.min(rawPower, 1000));
+    const clampedPower = Math.max(0, Math.min(rawPower, 100));
 
     console.log('[Gateway] cast_action received:', {
       roomId,
@@ -665,6 +667,31 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     if (!roomId) return;
 
     this.server.to(roomId).emit('team_casted', { team: data.team });
+    
+    // 현재 팀 캐스팅 완료 표시
+    const teamKey = `${roomId}:${data.team}`;
+    this.castingComplete.set(teamKey, true);
+    
+    // 양 팀 모두 캐스팅 완료 확인
+    const teamAKey = `${roomId}:A`;
+    const teamBKey = `${roomId}:B`;
+    const teamACasted = this.castingComplete.get(teamAKey);
+    const teamBCasted = this.castingComplete.get(teamBKey);
+    
+    // 양 팀 모두 완료 시 5초 대기 후 HIT 신호
+    if (teamACasted && teamBCasted) {
+      console.log(`[Gateway] Both teams casted in room ${roomId}, starting 5s timer for HIT`);
+      
+      // 5초 대기 후 HIT 신호 전송
+      setTimeout(() => {
+        this.server.to(roomId).emit('casting_hit');
+        console.log(`[Gateway] casting_hit emitted for room ${roomId}`);
+        
+        // 캐스팅 완료 상태 초기화
+        this.castingComplete.delete(teamAKey);
+        this.castingComplete.delete(teamBKey);
+      }, 5000);
+    }
   }
 
   @SubscribeMessage('start_countdown')
