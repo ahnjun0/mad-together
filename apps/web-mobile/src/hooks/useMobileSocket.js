@@ -133,6 +133,12 @@ export function useMobileSocket() {
       }
     });
 
+    // Ready 상태에서 팀 변경 시도 시 차단
+    socket.on('team_change_blocked', (data) => {
+      console.log('[Mobile] ⚠️ Team change blocked:', data);
+      alert(data.message || '준비 완료 상태에서는 팀을 변경할 수 없습니다.');
+    });
+
     // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)
     // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
