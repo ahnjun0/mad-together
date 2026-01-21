@@ -748,6 +748,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const goalScore = teamACount * 100;
     await this.redis.setGoalScore(roomId, goalScore);
 
+    // ⚠️ CRITICAL: startGame()을 먼저 호출 (내부에서 resetTeamScores() 실행)
+    // 그 후 보너스 점수를 적용해야 리셋되지 않음!
+    await this.gamesService.startGame(roomId);
+    this.gameStartTime.set(roomId, new Date());
+
     // 캐스팅 승자에게 보너스 점수 적용 (팀 점수 + 개인 점수)
     const teamAPowerKey = `${roomId}:A`;
     const teamBPowerKey = `${roomId}:B`;
@@ -760,10 +765,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     if (teamAPower > teamBPower) {
       castingWinner = Team.A;
-      teamBonusScore = teamACount * 4; // 팀 점수: 팀원 1인당 2점
+      teamBonusScore = teamACount * 4; // 팀 점수: 팀원 1인당 4점
     } else if (teamBPower > teamAPower) {
       castingWinner = Team.B;
-      teamBonusScore = teamBCount * 4; // 팀 점수: 팀원 1인당 2점
+      teamBonusScore = teamBCount * 4; // 팀 점수: 팀원 1인당 4점
     }
     // 동점인 경우 보너스 없음
 
@@ -788,16 +793,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.castingPower.delete(teamAPowerKey);
     this.castingPower.delete(teamBPowerKey);
 
-    await this.gamesService.startGame(roomId);
-    this.gameStartTime.set(roomId, new Date());
-
     // 보너스 점수가 적용된 후 현재 점수를 클라이언트에 알림
     const teamScores = await this.redis.getTeamScores(roomId);
 
     await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('game_started', {
       castingWinner,
-      bonusScore,
+      bonusScore: teamBonusScore, // 🔧 수정: bonusScore → teamBonusScore
       initialScores: teamScores,
     });
   }
