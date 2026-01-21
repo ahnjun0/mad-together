@@ -797,7 +797,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     await this.broadcastRoomState(roomId);
     this.server.to(roomId).emit('game_started', {
       castingWinner,
-      bonusScore,
+      bonusScore: teamBonusScore,
       initialScores: teamScores,
     });
   }
