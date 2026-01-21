@@ -8,7 +8,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // 정적 파일 서빙 (Uploads)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Docker 환경: /app/uploads, 로컬 개발: ./uploads
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 
