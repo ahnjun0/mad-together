@@ -420,7 +420,10 @@ export function usePcSocket() {
 
         // Track shake event for fishing rod animation
         // 게임 종료 연출 중에는 shake 이벤트를 처리하지 않음
-        const { gameEndingState: endingState, players } = useGameStore.getState();
+        const state = useGameStore.getState();
+        const endingState = state.gameEndingState;
+        const currentPlayers = state.players;
+
         if (data.event && data.event.team && !endingState.isEnding) {
           // Find player info for floating UI
           let userInfo = null;
@@ -429,7 +432,7 @@ export function usePcSocket() {
           
           if (playerId || nickname) {
             // Find player in the specific team list
-            const teamPlayers = players[data.event.team] || [];
+            const teamPlayers = currentPlayers[data.event.team] || [];
             const foundPlayer = teamPlayers.find(p => 
               (playerId && (p.id === playerId || p.playerId === playerId)) || 
               (!playerId && p.nickname === nickname)

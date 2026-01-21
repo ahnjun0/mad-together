@@ -8,17 +8,18 @@ export default function LobbyView() {
   const [isReady, setIsReady] = useState(false);
   const [isSensorChecked, setIsSensorChecked] = useState(false);
 
-  // 서버에서 받은 플레이어 정보와 동기화
+  // 서버에서 받은 플레이어 정보와 동기화 (Ready, SensorChecked만)
+  // ⚠️ 팀 정보는 player_updated/room_state 이벤트에서 처리하므로 여기서 중복 처리하지 않음
+  // 여기서 setTeam을 호출하면 Optimistic UI와 충돌하여 팀 변경이 되돌아가는 문제 발생
   useEffect(() => {
     if (playerId && players && Array.isArray(players)) {
       const me = players.find(p => (p.id || p.playerId) === playerId);
       if (me) {
         if (me.isReady !== undefined) setIsReady(me.isReady);
         if (me.sensorChecked !== undefined) setIsSensorChecked(me.sensorChecked);
-        if (me.team && me.team !== myTeam) setTeam(me.team);
       }
     }
-  }, [players, playerId, myTeam, setTeam]);
+  }, [players, playerId]);
 
   const handleTeamSelect = (team) => {
     setTeam(team);

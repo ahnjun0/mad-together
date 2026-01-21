@@ -193,7 +193,8 @@ export function useMobileSocket() {
         socket.disconnect();
       }
     };
-  }, [token, roomId, playerId, myTeam]);
+    // ⚠️ myTeam을 의존성에서 제거: 팀 변경 시 소켓이 재연결되면 select_team 이벤트가 손실됨
+  }, [token, roomId, playerId]);
 
   // Join room function (HTTP API Call)
   // 프로필 정보(nickname, profileImage)는 방 입장 시 고정됨 (이후 변경 불가)
