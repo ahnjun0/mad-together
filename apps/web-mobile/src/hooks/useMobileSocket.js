@@ -62,7 +62,12 @@ export function useMobileSocket() {
       if (data.room?.status) {
         setGameState(data.room.status);
       }
-      
+
+      // 팀 이름 저장
+      if (data.room?.teamAName || data.room?.teamBName) {
+        useMobileStore.getState().setTeamNames(data.room.teamAName, data.room.teamBName);
+      }
+
       // 내 정보 동기화 및 전체 플레이어 목록 저장
       if (data.players && Array.isArray(data.players)) {
         // 정규화된 플레이어 데이터 저장
@@ -137,6 +142,13 @@ export function useMobileSocket() {
     socket.on('team_change_blocked', (data) => {
       console.log('[Mobile] ⚠️ Team change blocked:', data);
       alert(data.message || '준비 완료 상태에서는 팀을 변경할 수 없습니다.');
+    });
+
+    // 호스트에 의해 강제 퇴장
+    socket.on('player_kicked', (data) => {
+      console.log('[Mobile] 🦵 Player kicked:', data);
+      useMobileStore.getState().showKickModal(data.message);
+      // 소켓 연결 해제는 서버에서 처리하므로 여기서는 모달만 표시
     });
 
     // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)

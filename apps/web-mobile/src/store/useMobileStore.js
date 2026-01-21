@@ -22,9 +22,18 @@ export const useMobileStore = create(
     roomId: null,
     pendingRoomCode: null, // For flow: Login -> Profile -> Join
     players: [],
+    // 팀 이름 (서버에서 수신)
+    teamAName: 'A팀',
+    teamBName: 'B팀',
     // CASTING phase shared state
     castingCountdown: null, // 서버 캐스팅 카운트다운 (5~1)
     isCastingStarted: false, // 서버에서 casting_start 수신 여부
+
+    // Kick 모달 상태
+    kickModal: {
+      isOpen: false,
+      message: '',
+    },
 
     // Actions
     setGameState: (state) =>
@@ -96,6 +105,40 @@ export const useMobileStore = create(
     setIsCastingStarted: (started) =>
       set((draft) => {
         draft.isCastingStarted = started;
+      }),
+
+    setTeamNames: (teamAName, teamBName) =>
+      set((draft) => {
+        draft.teamAName = teamAName || 'A팀';
+        draft.teamBName = teamBName || 'B팀';
+      }),
+
+    // Kick 모달 열기
+    showKickModal: (message) =>
+      set((draft) => {
+        draft.kickModal = {
+          isOpen: true,
+          message: message || '호스트에 의해 방에서 퇴장되었습니다.',
+        };
+      }),
+
+    // Kick 모달 닫기 및 상태 초기화 (로그인 화면으로 이동)
+    closeKickModalAndReset: () =>
+      set((draft) => {
+        // 모달 닫기
+        draft.kickModal = { isOpen: false, message: '' };
+        // 방 관련 상태 초기화 (token은 유지하여 다시 로그인 불필요)
+        draft.gameState = 'WAITING';
+        draft.roomId = null;
+        draft.playerId = null;
+        draft.myTeam = null;
+        draft.isTeamLeader = false;
+        draft.players = [];
+        draft.teamAName = 'A팀';
+        draft.teamBName = 'B팀';
+        draft.finalScore = { A: 0, B: 0, winnerTeam: null, mvp: null };
+        draft.castingCountdown = null;
+        draft.isCastingStarted = false;
       }),
   }))
 );

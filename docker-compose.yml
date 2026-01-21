@@ -80,6 +80,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       - web_mobile_dist:/usr/share/nginx/html/mobile:ro
       - web_pc_dist:/usr/share/nginx/html/pc:ro
+      - /var/log/nginx:/var/log/nginx
     depends_on:
       backend:
         condition: service_started
