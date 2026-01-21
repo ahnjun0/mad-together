@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
+import { usePcSocket } from '../hooks/usePcSocket';
 import GlassPanel from '../components/GlassPanel';
 import PlayerCard from '../components/PlayerCard';
 import TeamScoreCard from '../components/TeamScoreCard';
@@ -10,7 +11,8 @@ import backgroundFinishedLeft from '../assets/background_finished_left.png';
 import backgroundFinishedRight from '../assets/background_finished_right.png';
 
 export default function FinishedView() {
-  const { score, gameResult, roomInfo, resetGameCompletely } = useGameStore();
+  const { score, gameResult, roomInfo } = useGameStore();
+  const { resetGame } = usePcSocket();
   const winner = score.A > score.B ? 'A' : score.A < score.B ? 'B' : null;
 
   // Get player scores by team, sorted by score descending
@@ -32,14 +34,10 @@ export default function FinishedView() {
   };
 
   const handleExit = () => {
-    console.log('[FinishedView] 🔄 Starting new game - resetting all game states');
+    console.log('[FinishedView] 🔄 Starting new game - requesting server reset');
     
-    // 완전히 새로운 게임을 시작하기 위해 모든 게임 상태 초기화
-    // 로그인 상태는 유지, HOME 화면으로 이동하여 새 방 생성
-    resetGameCompletely();
-    
-    // 소켓은 싱글톤이므로 자동으로 재사용됨
-    // HOME에서 새로운 방을 생성하면 새로운 roomId로 연결됨
+    // 서버에 게임 초기화 요청 (모든 클라이언트 동기화)
+    resetGame();
   };
 
   return (
