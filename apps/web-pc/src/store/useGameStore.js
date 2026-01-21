@@ -131,7 +131,7 @@ export const useGameStore = create(
           });
 
           // Enforce max size (Queue behavior)
-          const MAX_SHAKERS = 6;
+          const MAX_SHAKERS = 10;
           if (draft.recentShakers[team].length > MAX_SHAKERS) {
             draft.recentShakers[team].shift(); // Remove the oldest (leftmost)
           }
