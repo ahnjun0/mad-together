@@ -3,7 +3,7 @@ import React from 'react';
 import GlassPanel from './GlassPanel';
 import PlayerCard from './PlayerCard';
 
-export default function TeamPanel({ teamName, players, color }) {
+export default function TeamPanel({ teamName, players, color, showKickButton = false, onKick }) {
   // color prop: 'team-a' 또는 'team-b'
   const titleColor = color === 'team-a' ? 'text-team-a' : 'text-team-b';
   
@@ -32,6 +32,8 @@ export default function TeamPanel({ teamName, players, color }) {
             sensorChecked={player.sensorChecked}
             profileImage={player.profileImage}
             teamColor={color}
+            showKickButton={showKickButton}
+            onKick={onKick ? () => onKick(player.id || player.playerId) : undefined}
           />
         ))}
 

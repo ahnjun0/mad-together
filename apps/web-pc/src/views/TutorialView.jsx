@@ -12,7 +12,7 @@ import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 // PC (Host) only view - Sensor Check Phase
 export default function TutorialView() {
   const { players, roomInfo } = useGameStore();
-  const { socket, startCinematic, terminateGame, isConnected: socketConnected } = usePcSocket();
+  const { socket, startCinematic, terminateGame, requestRoomState, isConnected: socketConnected } = usePcSocket();
 
   // 🎵 TutorialView 배경음악
   useBackgroundMusic(backgroundOcean, {
@@ -20,6 +20,14 @@ export default function TutorialView() {
     loop: true,
     autoPlay: true,
   });
+
+  // 화면 마운트 시 최신 플레이어 목록 요청
+  useEffect(() => {
+    if (socketConnected && roomInfo.roomId) {
+      console.log('[TutorialView] 🔄 Requesting latest room state');
+      requestRoomState();
+    }
+  }, [socketConnected, roomInfo.roomId, requestRoomState]);
 
   // Host(PC 관리자)는 리스트에서 제외
   const filterNonHost = (list = []) => list.filter((p) => !p.isHost);

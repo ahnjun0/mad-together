@@ -1,11 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, Suspense, useCallback } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { FishingRod3D } from '../components/FishingRod3D';
 import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fishingItems';
-import backgroundOcean from '../assets/background-ocean.png';
-import backgroundOceanMusic from '../assets/sounds/background_ocean.mp3';
+import VideoBackground from '../components/VideoBackground';
+import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';
 
 const ShakeItem = ({ item, onExpire }) => {
   useEffect(() => {
@@ -89,12 +88,9 @@ export default function PlayingView() {
     setGameState,
   } = useGameStore();
 
-  // 🎵 PlayingView 배경음악 (작게 재생)
-  useBackgroundMusic(backgroundOceanMusic, {
-    volume: 0.2,
-    loop: true,
-    autoPlay: true,
-  });
+  // Note: PlayingView에서는 requestRoomState를 호출하지 않음
+  // 게임 진행 중에는 실시간 score_update 이벤트로 충분함
+  // 배경 비디오에 음악이 포함되어 있어 별도 배경음악 제거
 
   // Calculate fish position based on score difference (0 = Team B side, 1 = Team A side)
   const totalScore = score.A + score.B;
@@ -131,10 +127,12 @@ export default function PlayingView() {
   }, [isEnding, gameEndingState]);
 
   return (
-    <div
-      className="w-full h-full flex flex-col bg-gradient-to-b from-sky-400 to-blue-600 bg-cover bg-center"
-      style={{ backgroundImage: `url(${backgroundOcean})` }}
-    >
+    <div className="w-full h-full relative">
+      {/* 비디오 배경 */}
+      <VideoBackground videoSrc={backgroundOceanVideo} className="z-0" />
+      
+      {/* 메인 컨텐츠 */}
+      <div className="relative z-10 w-full h-full flex flex-col">
       {/* Gauge Bar at Top */}
       <div className="p-4">
         <div className="bg-white/90 rounded-[20px] border-2 border-blue-900 p-4">
@@ -345,6 +343,7 @@ export default function PlayingView() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

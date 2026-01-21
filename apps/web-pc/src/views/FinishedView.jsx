@@ -10,7 +10,7 @@ import backgroundFinishedLeft from '../assets/background_finished_left.png';
 import backgroundFinishedRight from '../assets/background_finished_right.png';
 
 export default function FinishedView() {
-  const { score, gameResult, roomInfo, setGameState, clearGameResult } = useGameStore();
+  const { score, gameResult, roomInfo, resetGameCompletely } = useGameStore();
   const winner = score.A > score.B ? 'A' : score.A < score.B ? 'B' : null;
 
   // Get player scores by team, sorted by score descending
@@ -32,10 +32,14 @@ export default function FinishedView() {
   };
 
   const handleExit = () => {
-    // 게임 결과 초기화
-    clearGameResult();
-    // HOME 화면으로 이동
-    setGameState('HOME');
+    console.log('[FinishedView] 🔄 Starting new game - resetting all game states');
+    
+    // 완전히 새로운 게임을 시작하기 위해 모든 게임 상태 초기화
+    // 로그인 상태는 유지, HOME 화면으로 이동하여 새 방 생성
+    resetGameCompletely();
+    
+    // 소켓은 싱글톤이므로 자동으로 재사용됨
+    // HOME에서 새로운 방을 생성하면 새로운 roomId로 연결됨
   };
 
   return (

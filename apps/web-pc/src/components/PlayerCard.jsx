@@ -11,7 +11,9 @@ export default function PlayerCard({
   profileImage,
   score,        // 점수 (Finished 화면용)
   isMVP,        // MVP 여부 (Finished 화면용)
-  showRank      // 순위 표시 (Finished 화면용)
+  showRank,     // 순위 표시 (Finished 화면용)
+  showKickButton = false, // Kick 버튼 표시 여부 (WaitingView에서만 true)
+  onKick        // Kick 버튼 클릭 핸들러
 }) {
   const [imageError, setImageError] = useState(false);
   // 팀에 따른 텍스트/아이콘 색상 결정
@@ -35,12 +37,39 @@ export default function PlayerCard({
 
   return (
     <div className={`
+      relative
       flex items-center justify-between 
       w-full p-3 mb-3 
       bg-white rounded-[20px] shadow-sm border-2 transition-all duration-300
       ${borderClass}
       ${sensorChecked ? 'animate-pulse' : ''}
     `}>
+      {/* Kick 버튼 (우측 상단) */}
+      {showKickButton && onKick && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`${nickname}님을 방에서 퇴장시키시겠습니까?`)) {
+              onKick();
+            }
+          }}
+          className="
+            absolute top-2 right-2 
+            w-6 h-6 
+            bg-red-500 hover:bg-red-600 
+            text-white text-xs font-bold 
+            rounded-full 
+            flex items-center justify-center
+            shadow-md hover:shadow-lg
+            transition-all duration-200
+            z-10
+          "
+          title="플레이어 퇴장"
+        >
+          ✕
+        </button>
+      )}
+      
       <div className="flex items-center gap-3">
         {/* MVP 아이콘 (Finished 화면용) */}
         {isMVP && (

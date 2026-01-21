@@ -458,6 +458,55 @@ export const useGameStore = create(
         draft.players = { A: [], B: [], unassigned: [] };
       }),
 
+    // 게임 완전 초기화 (새 게임 시작용 - 로그인 상태는 유지)
+    resetGameCompletely: () =>
+      set((draft) => {
+        // 게임 상태 초기화
+        draft.gameState = 'HOME';
+        draft.score = { A: 0, B: 0 };
+        draft.myTeam = null;
+        draft.isHost = false;
+        draft.isConnected = false;
+        
+        // 방 정보 초기화
+        draft.roomInfo = {
+          roomId: null,
+          code: null,
+          qrCode: null,
+          teamAName: 'A팀',
+          teamBName: 'B팀',
+          maxPlayers: 10,
+          status: null,
+        };
+        
+        // 플레이어 정보 초기화
+        draft.players = { A: [], B: [], unassigned: [] };
+        
+        // Shake 히스토리 초기화
+        draft.shakeHistory = { A: [], B: [] };
+        draft.recentShakers = { A: [], B: [] };
+        
+        // Casting 상태 초기화
+        draft.castingCountdown = null;
+        draft.isCastingStarted = false;
+        draft.castingPower = { A: null, B: null };
+        
+        // 게임 결과 초기화
+        draft.gameResult = null;
+        
+        // 게임 종료 상태 초기화
+        draft.gameEndingState = {
+          isEnding: false,
+          showModal: false,
+          winnerTeam: null,
+          caughtItemIndex: null,
+          animationPhase: 'idle',
+        };
+        
+        // Alert 초기화
+        draft.alert = null;
+      }),
+
     // 기존 게임으로 복귀
     restoreRoom: (roomData) =>
       set((draft) => {

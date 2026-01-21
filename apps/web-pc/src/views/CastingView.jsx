@@ -2,22 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
-import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { CastingRod3D } from '../components/CastingRod3D';
 import PlayerAvatar from '../components/PlayerAvatar';
 import GlassPanel from '../components/GlassPanel';
+import VideoBackground from '../components/VideoBackground';
 import backgroundOnship from '../assets/background_onship.png';
-import backgroundOcean from '../assets/background-ocean.png';
+import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';
 import timerSound from '../assets/sounds/timer_sound.mp3';
 import timerEndSound from '../assets/sounds/timer_sound_end.mp3';
 import castingHitSound from '../assets/sounds/casting_hit_sound.mp3';
 import fishingFloat from '../assets/fishing-float.png';
-import backgroundOceanMusic from '../assets/sounds/background_ocean.mp3';
 
 // PC (Host) only view - Casting display with animation
 export default function CastingView() {
   const { players, roomInfo, castingCountdown, isCastingStarted, castingPower } = useGameStore();
-  const { socket, startCountdown, startCastingTimer, terminateGame } = usePcSocket();
+  const { socket, startCountdown, startCastingTimer, terminateGame, requestRoomState } = usePcSocket();
   const [teamACasted, setTeamACasted] = useState(false);
   const [teamBCasted, setTeamBCasted] = useState(false);
   const [castTriggered, setCastTriggered] = useState(false);
@@ -30,12 +29,14 @@ export default function CastingView() {
   const endAudioRef = useRef(null);
   const hitAudioRef = useRef(null);
 
-  // 🎵 CastingView 배경음악 (작게 재생)
-  useBackgroundMusic(backgroundOceanMusic, {
-    volume: 0.2,
-    loop: true,
-    autoPlay: true,
-  });
+  // 화면 마운트 시 최신 플레이어 목록 요청
+  // 배경 비디오에 음악이 포함되어 있어 별도 배경음악 제거
+  useEffect(() => {
+    if (socket && roomInfo.roomId) {
+      console.log('[CastingView] 🔄 Requesting latest room state');
+      requestRoomState();
+    }
+  }, [socket, roomInfo.roomId, requestRoomState]);
 
   // players가 배열인지 객체인지 확인하고 변환
   const teamA_players = Array.isArray(players)
@@ -155,8 +156,7 @@ export default function CastingView() {
   // - 카운트다운/캐스팅 대기 & 캐스팅 완료 후(낚시찌 표시 시): 선박뷰
   // - 실제 캐스팅 중(낚싯줄이 날아가는 구간): 바다뷰
   // showFloats가 true가 되면 선박뷰로 전환 (2초 지연 후)
-  const backgroundImage =
-    isCastingStarted && !showFloats ? backgroundOcean : backgroundOnship;
+  const isOceanView = isCastingStarted && !showFloats;
 
   const handleStartCastingTimer = () => {
     console.log('[CastingView] ⏰ Starting casting timer');
@@ -165,10 +165,19 @@ export default function CastingView() {
   };
 
   return (
-    <div
-      className="w-full h-full relative flex items-center justify-center p-8 bg-cover bg-center"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
-    >
+    <div className="w-full h-full relative">
+      {/* 배경 - 조건부 렌더링 (선박뷰 또는 바다뷰) */}
+      {isOceanView ? (
+        <VideoBackground videoSrc={backgroundOceanVideo} className="z-0" />
+      ) : (
+        <div 
+          className="fixed inset-0 w-full h-full z-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${backgroundOnship})` }}
+        />
+      )}
+      
+      {/* 메인 컨텐츠 */}
+      <div className="relative z-10 w-full h-full flex items-center justify-center p-8">
       {/* 중앙 정보 패널 제거 (화면을 3D 낚싯대와 배경에 집중) */}
 
       {/* 바다 위에 직접 보이는 3D 낚싯대 - 화면 전체를 사용하는 레이어 */}
@@ -468,6 +477,7 @@ export default function CastingView() {
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import GlassPanel from '../components/GlassPanel';
 import GlossyButton from '../components/GlossyButton';
 import bgShip from '../assets/background-ship.jpg';
 import bgOnship from '../assets/background_onship.png';
-import backgroundOcean from '../assets/background-ocean.png';
+import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';
 import backgroundFinishedLeft from '../assets/background_finished_left.png';
 import backgroundFinishedRight from '../assets/background_finished_right.png';
 import cinematicVideo from '../assets/cinematic.mp4';
@@ -17,7 +17,7 @@ import backgroundMusicDeck from '../assets/sounds/background_music_deck.mp3';
 // PC (Host) only view - WaitingView with QR code and team lists
 export default function WaitingView() {
   const { roomInfo, players } = useGameStore();
-  const { startTutorial, joinRoom, terminateGame, isConnected: socketConnected } = usePcSocket();
+  const { startTutorial, joinRoom, terminateGame, kickPlayer, isConnected: socketConnected } = usePcSocket();
 
   // 🎵 WaitingView 배경음악
   useBackgroundMusic(backgroundMusicDeck, {
@@ -32,13 +32,13 @@ export default function WaitingView() {
     const imageAssets = [
       bgShip,                   // 현재 대기 화면 배경
       bgOnship,                 // Tutorial / Casting 선박 뷰
-      backgroundOcean,          // Casting / Playing 바다 뷰
       backgroundFinishedLeft,   // Finished 화면 배경 (Team A 승리)
       backgroundFinishedRight,  // Finished 화면 배경 (Team B 승리)
     ].filter(Boolean);
 
     const videoAssets = [
-      cinematicVideo,  // CinematicView 영상
+      cinematicVideo,           // CinematicView 영상
+      backgroundOceanVideo,     // Casting / Playing 바다 뷰 (동영상)
     ].filter(Boolean);
 
     // 이미지 프리로드
@@ -108,6 +108,12 @@ export default function WaitingView() {
     teamA_players.length !== teamB_players.length || // 양 팀 인원이 다름
     allPlayers.some((p) => !p.isReady); // 준비 안 된 인원 존재
 
+  // 플레이어 Kick 핸들러
+  const handleKickPlayer = (playerId) => {
+    console.log('[WaitingView] 🦵 Kicking player:', playerId);
+    kickPlayer(playerId);
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden relative">
       {/* Background Layer: 항상 화면 전체를 꽉 채움 */}
@@ -148,6 +154,8 @@ export default function WaitingView() {
               teamName={roomInfo.teamAName || 'TEAM A'}
               players={teamA_players}
               color="team-a"
+              showKickButton={true}
+              onKick={handleKickPlayer}
             />
           </div>
 
@@ -157,6 +165,8 @@ export default function WaitingView() {
               teamName={roomInfo.teamBName || 'TEAM B'}
               players={teamB_players}
               color="team-b"
+              showKickButton={true}
+              onKick={handleKickPlayer}
             />
           </div>
 

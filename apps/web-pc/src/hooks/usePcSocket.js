@@ -501,6 +501,12 @@ export function usePcSocket() {
       showAlert('error', data.message || '게임 종료 중 오류가 발생했습니다.');
     });
 
+    // Kick 에러
+    socket.on('kick_error', (data) => {
+      console.log('[Socket] ❌ Kick error:', data);
+      showAlert('error', data.message || '플레이어 퇴장 처리 중 오류가 발생했습니다.');
+    });
+
     // Cleanup - 싱글톤이므로 리스너만 제거하고 연결은 유지
     // 앱이 언마운트될 때만 완전히 연결 해제
     return () => {
@@ -590,6 +596,24 @@ export function usePcSocket() {
     }
   }, []);
 
+  // 플레이어 강제 퇴장 (Host 전용, WAITING 상태에서만)
+  const kickPlayer = useCallback((playerId) => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] 🦵 Emitting kick_player:', playerId);
+      socketInstance.emit('kick_player', { playerId });
+    } else {
+      console.warn('[Socket] ⚠️ Socket not connected, cannot kick player');
+    }
+  }, []);
+
+  // 방 상태 요청 (각 View 마운트 시 최신 데이터 동기화용)
+  const requestRoomState = useCallback(() => {
+    if (socketInstance?.connected) {
+      console.log('[Socket] 🔄 Requesting room state');
+      socketInstance.emit('request_room_state');
+    }
+  }, []);
+
   // 소켓 연결 상태 반환
   const isConnected = socketInstance?.connected || false;
 
@@ -603,6 +627,8 @@ export function usePcSocket() {
     startCastingTimer,
     startCinematic,
     terminateGame,
+    kickPlayer,
+    requestRoomState,
     waitForConnection,
   };
 }
