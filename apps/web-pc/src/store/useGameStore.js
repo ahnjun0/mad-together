@@ -44,6 +44,10 @@ export const useGameStore = create(
       A: [], // Array of timestamps (ms)
       B: [],
     },
+    recentShakers: {
+      A: [], // { id, nickname, profileImage, timestamp }[]
+      B: [],
+    },
     // Time window for calculating shake intensity (ms)
     SHAKE_WINDOW_MS: 2000,
     // Max shakes per second for normalization
@@ -101,7 +105,7 @@ export const useGameStore = create(
       }),
 
     // Shake tracking actions
-    addShakeEvent: (team) =>
+    addShakeEvent: (team, userInfo = null) =>
       set((draft) => {
         if (!draft.shakeHistory[team]) return;
         const now = Date.now();
@@ -111,6 +115,36 @@ export const useGameStore = create(
         draft.shakeHistory[team] = draft.shakeHistory[team].filter(
           (t) => t >= cutoff
         );
+
+        // Add to recentShakers if userInfo is provided
+        if (userInfo) {
+          if (!draft.recentShakers[team]) draft.recentShakers[team] = [];
+          
+          // Generate unique ID for this event
+          const shakeId = `${now}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          draft.recentShakers[team].push({
+            id: shakeId,
+            nickname: userInfo.nickname || 'Unknown',
+            profileImage: userInfo.profileImage || null,
+            timestamp: now,
+          });
+
+          // Enforce max size (Queue behavior)
+          const MAX_SHAKERS = 6;
+          if (draft.recentShakers[team].length > MAX_SHAKERS) {
+            draft.recentShakers[team].shift(); // Remove the oldest (leftmost)
+          }
+        }
+      }),
+
+    removeShaker: (team, shakerId) =>
+      set((draft) => {
+        if (draft.recentShakers[team]) {
+          draft.recentShakers[team] = draft.recentShakers[team].filter(
+            (s) => s.id !== shakerId
+          );
+        }
       }),
 
     clearShakeHistory: () =>
