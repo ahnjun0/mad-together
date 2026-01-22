@@ -95,10 +95,10 @@ export default function TutorialView() {
         </GlassPanel>
       </div>
 
-      {/* 플레이어 아바타 리스트 - 5열 그리드, 그리드 중앙이 팀의 중앙선(1/4)에 고정 */}
+      {/* 플레이어 아바타 리스트 - 8열 그리드, 그리드 중앙이 팀의 중앙선(1/4)에 고정 */}
       <div className="fixed left-[25%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
         {teamA_players.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-8 gap-x-4 gap-y-4">
             {teamA_players.map((player) => (
               <PlayerAvatar
                 key={player.id || player.playerId}
@@ -106,6 +106,7 @@ export default function TutorialView() {
                 sensorChecked={player.sensorChecked}
                 teamColor="team-a"
                 profileImage={player.profileImage}
+                size="small"
               />
             ))}
           </div>
@@ -130,10 +131,10 @@ export default function TutorialView() {
         </GlassPanel>
       </div>
 
-      {/* 플레이어 아바타 리스트 - 5열 그리드, 그리드 중앙이 팀의 중앙선(3/4)에 고정 */}
+      {/* 플레이어 아바타 리스트 - 8열 그리드, 그리드 중앙이 팀의 중앙선(3/4)에 고정 */}
       <div className="fixed left-[75%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
         {teamB_players.length > 0 ? (
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-8 gap-x-4 gap-y-4">
             {teamB_players.map((player) => (
               <PlayerAvatar
                 key={player.id || player.playerId}
@@ -141,6 +142,7 @@ export default function TutorialView() {
                 sensorChecked={player.sensorChecked}
                 teamColor="team-b"
                 profileImage={player.profileImage}
+                size="small"
               />
             ))}
           </div>

@@ -3,7 +3,7 @@ import React from 'react';
 import GlassPanel from './GlassPanel';
 import PlayerCard from './PlayerCard';
 
-export default function TeamPanel({ teamName, players, color, showKickButton = false, onKick }) {
+export default function TeamPanel({ teamName, players, color, showKickButton = false, onKick, showPlayerCount = false }) {
   // color prop: 'team-a' 또는 'team-b'
   const titleColor = color === 'team-a' ? 'text-team-a' : 'text-team-b';
   
@@ -13,13 +13,20 @@ export default function TeamPanel({ teamName, players, color, showKickButton = f
   return (
     <GlassPanel border={color} className="h-full flex flex-col min-h-[600px] max-h-[80vh]">
       {/* 팀 헤더 (아웃라인 텍스트) */}
-      <h2 className={`
-        text-4xl md:text-5xl font-game text-center mb-6 tracking-wide
-        text-outline ${titleColor}
-        drop-shadow-lg
-      `}>
-        {teamName}
-      </h2>
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <h2 className={`
+          text-4xl md:text-5xl font-game text-center tracking-wide
+          text-outline ${titleColor}
+          drop-shadow-lg
+        `}>
+          {teamName}
+        </h2>
+        {showPlayerCount && (
+          <span className={`text-xl font-game ${titleColor} drop-shadow-md`}>
+            {players.length}명
+          </span>
+        )}
+      </div>
 
       {/* 플레이어 리스트 영역 (스크롤 가능) */}
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">

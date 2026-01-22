@@ -86,6 +86,7 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
     // 승리 애니메이션 상태
     victoryProgress: 0,
     isVictoryAnimating: false,
+    victoryCompleteLogged: false,
   });
 
   // Animation output values for fishing line
@@ -162,10 +163,15 @@ function FishingRodModel({ team, mirrored = false, onTipPositionUpdate, isWinner
         animState.isAnimating = false; // 기존 애니메이션 중지
       }
 
-      // 빠르게 낚싯대 들어올리기 (약 0.3초)
-      // 1회만 훅 하고 빠르게 올리도록 속도와 이징을 조절
-      animState.victoryProgress = Math.min(animState.victoryProgress + delta * 3.5, 1);
+      // 낚싯대 들어올리기 (약 2초) - 애니메이션을 더 길게 표시
+      animState.victoryProgress = Math.min(animState.victoryProgress + delta * 0.5, 1);
       const progress = animState.victoryProgress;
+      
+      // 디버그 로그
+      if (progress === 1 && !animState.victoryCompleteLogged) {
+        console.log('[FishingRod3D] 🎣 Victory animation complete for team:', team);
+        animState.victoryCompleteLogged = true;
+      }
 
       // 강력한 훅 느낌을 위한 Out-Expo 이징
       const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
