@@ -97,15 +97,15 @@ export default function LoginView() {
   }, []);
 
   // ⚡️ [Preloading Logic - 주석처리] - Background image preload
-  // useEffect(() => {
-  //   const img = new Image();
-  //   img.src = backgroundDeck;
-  //   console.log('[LoginView] 🖼️ Preloading background_deck.png');
-  //   
-  //   return () => {
-  //     img.src = '';
-  //   };
-  // }, []);
+  useEffect(() => {
+    const img = new Image();
+    img.src = backgroundDeck;
+    console.log('[LoginView] 🖼️ Preloading background_deck.png');
+    
+    return () => {
+      img.src = '';
+    };
+  }, []);
 
   // 개발용 로그인 (DEV 환경에서만)
   const handleDevLogin = async () => {
