@@ -28,7 +28,7 @@ export default function PlayerAvatar({
 
   // 크기별 스타일
   const sizeClasses = size === 'small' 
-    ? { avatar: 'w-18 h-18', text: 'text-lg', badge: 'text-xs px-2 py-0.5' }
+    ? { avatar: 'w-16 h-16', text: 'text-base', badge: 'text-xs px-2 py-0.5' }
     : { avatar: 'w-24 h-24', text: 'text-2xl', badge: 'text-sm px-3 py-1' };
 
   const getImageUrl = (url) => {
