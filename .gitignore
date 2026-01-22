@@ -30,4 +30,5 @@ Thumbs.db
 certbot/
 
 # Test .py files
+# requirements.txt
 # *test*.py

@@ -1,0 +1,6 @@
+# Stress Test Bot Dependencies
+# Install with: pip install -r requirements.txt
+
+python-socketio[client]==5.11.0
+aiohttp==3.9.1
+requests==2.31.0
