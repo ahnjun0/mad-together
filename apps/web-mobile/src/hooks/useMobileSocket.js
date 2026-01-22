@@ -39,10 +39,14 @@ export function useMobileSocket() {
       socketRef.current = socketInstance;
       setConnected(true);
 
+      // 항상 최신 값을 store에서 가져옴 (stale closure 방지)
+      const currentRoomId = useMobileStore.getState().roomId;
+      const currentPlayerId = useMobileStore.getState().playerId;
+
       // 재사용 시에도 join_room 시도
-      if (roomId && playerId) {
-        console.log('[Mobile] 📡 Re-emitting join_room:', { roomId, playerId });
-        socketInstance.emit('join_room', { roomId, playerId });
+      if (currentRoomId && currentPlayerId) {
+        console.log('[Mobile] 📡 Re-emitting join_room:', { roomId: currentRoomId, playerId: currentPlayerId });
+        socketInstance.emit('join_room', { roomId: currentRoomId, playerId: currentPlayerId });
       }
       return;
     }
@@ -81,12 +85,16 @@ export function useMobileSocket() {
       setConnected(true);
       isInitializing = false;
 
+      // 항상 최신 값을 store에서 가져옴 (stale closure 방지)
+      const currentRoomId = useMobileStore.getState().roomId;
+      const currentPlayerId = useMobileStore.getState().playerId;
+
       // 연결/재연결 시 방 정보가 있다면 join_room 시도
-      if (roomId && playerId) {
-        console.log('[Mobile] 📡 Emitting join_room:', { roomId, playerId });
-        socket.emit('join_room', { roomId, playerId });
+      if (currentRoomId && currentPlayerId) {
+        console.log('[Mobile] 📡 Emitting join_room:', { roomId: currentRoomId, playerId: currentPlayerId });
+        socket.emit('join_room', { roomId: currentRoomId, playerId: currentPlayerId });
       } else {
-        console.warn('[Mobile] ⚠️ Cannot emit join_room: missing roomId or playerId', { roomId, playerId });
+        console.warn('[Mobile] ⚠️ Cannot emit join_room: missing roomId or playerId', { roomId: currentRoomId, playerId: currentPlayerId });
       }
     });
 
@@ -128,12 +136,15 @@ export function useMobileSocket() {
           score: p.score || 0,
           ...p,
         }));
-        
+
         useMobileStore.getState().setPlayers(normalizedPlayers);
-        
-        if (playerId) {
-            const me = normalizedPlayers.find(p => (p.id || p.playerId) === playerId);
+
+        // 항상 최신 playerId를 store에서 가져옴 (stale closure 방지)
+        const currentPlayerId = useMobileStore.getState().playerId;
+        if (currentPlayerId) {
+            const me = normalizedPlayers.find(p => (p.id || p.playerId) === currentPlayerId);
             if (me) {
+              console.log('[Mobile] 🔄 Syncing my state from room_state:', { team: me.team, isLeader: me.isLeader });
               if (me.team) setTeam(me.team);
               if (me.isLeader !== undefined) setIsTeamLeader(me.isLeader);
             }
@@ -207,29 +218,39 @@ export function useMobileSocket() {
     // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
     socket.on('leader_updated', (data) => {
-      console.log('Leader updated:', data);
-      if (data.newLeaderId === playerId) {
+      console.log('[Mobile] 👑 Leader updated:', data);
+      // 항상 최신 값을 store에서 가져옴 (stale closure 방지)
+      const currentPlayerId = useMobileStore.getState().playerId;
+      const currentTeam = useMobileStore.getState().myTeam;
+
+      if (data.newLeaderId === currentPlayerId) {
+        console.log('[Mobile] 👑 I am now the leader!');
         setIsTeamLeader(true);
-      } else if (data.team === myTeam) {
+      } else if (data.team === currentTeam) {
+        console.log('[Mobile] 👑 Someone else is now my team leader');
         setIsTeamLeader(false);
       }
     });
     
     socket.on('player_updated', (data) => {
       console.log('[Mobile] Player updated:', data);
+      // 항상 최신 playerId를 store에서 가져옴 (stale closure 방지)
+      const currentPlayerId = useMobileStore.getState().playerId;
+      const dataId = data.playerId || data.id;
+
       // 내 정보가 업데이트된 경우
-      if (data.playerId === playerId || data.id === playerId) {
+      if (dataId === currentPlayerId) {
+          console.log('[Mobile] 🔄 My info updated:', { team: data.team, isLeader: data.isLeader });
           if (data.team !== undefined) setTeam(data.team);
           if (data.isLeader !== undefined) setIsTeamLeader(data.isLeader);
           // isReady, sensorChecked는 room_state에서 동기화됨
       }
-      
+
       // 전체 플레이어 목록도 업데이트 (다른 플레이어의 상태 변경 반영)
       const currentPlayers = useMobileStore.getState().players;
       if (Array.isArray(currentPlayers)) {
         const updatedPlayers = currentPlayers.map(p => {
           const pId = p.id || p.playerId;
-          const dataId = data.playerId || data.id;
           if (pId === dataId) {
             return { ...p, ...data };
           }
