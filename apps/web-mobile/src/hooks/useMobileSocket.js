@@ -33,26 +33,35 @@ export function useMobileSocket() {
     // 토큰이 없으면 연결하지 않음
     if (!token) return;
 
-    // 이미 같은 토큰으로 연결된 소켓이 있으면 재사용
-    if (socketInstance && currentAuthToken === token && socketInstance.connected) {
-      console.log('[Mobile] 🔄 Reusing existing socket connection');
+    // 이미 같은 토큰으로 소켓 인스턴스가 있으면 재사용
+    if (socketInstance && currentAuthToken === token) {
       socketRef.current = socketInstance;
-      setConnected(true);
 
-      // 항상 최신 값을 store에서 가져옴 (stale closure 방지)
-      const currentRoomId = useMobileStore.getState().roomId;
-      const currentPlayerId = useMobileStore.getState().playerId;
+      if (socketInstance.connected) {
+        // 연결된 상태: 즉시 사용 가능
+        console.log('[Mobile] 🔄 Reusing existing connected socket');
+        setConnected(true);
 
-      // 재사용 시에도 join_room 시도
-      if (currentRoomId && currentPlayerId) {
-        console.log('[Mobile] 📡 Re-emitting join_room:', { roomId: currentRoomId, playerId: currentPlayerId });
-        socketInstance.emit('join_room', { roomId: currentRoomId, playerId: currentPlayerId });
+        // 항상 최신 값을 store에서 가져옴 (stale closure 방지)
+        const currentRoomId = useMobileStore.getState().roomId;
+        const currentPlayerId = useMobileStore.getState().playerId;
+
+        // 재사용 시에도 join_room 시도
+        if (currentRoomId && currentPlayerId) {
+          console.log('[Mobile] 📡 Re-emitting join_room:', { roomId: currentRoomId, playerId: currentPlayerId });
+          socketInstance.emit('join_room', { roomId: currentRoomId, playerId: currentPlayerId });
+        }
+      } else {
+        // 연결 해제 상태: socket.io가 자동 재연결 시도 중
+        // 새 소켓을 만들지 않고 기존 소켓의 재연결을 기다림
+        console.log('[Mobile] ⏳ Socket exists but disconnected, waiting for auto-reconnect...');
+        setConnected(false);
       }
       return;
     }
 
     // 이미 초기화 중이면 대기
-    if (isInitializing && currentAuthToken === token) {
+    if (isInitializing) {
       console.log('[Mobile] ⏳ Socket initialization in progress, waiting...');
       socketRef.current = socketInstance;
       return;
@@ -60,7 +69,7 @@ export function useMobileSocket() {
 
     // 기존 소켓이 있고 토큰이 변경되었으면 연결 해제
     if (socketInstance && currentAuthToken !== token) {
-      console.log('[Mobile] 🔄 Token changed, reconnecting with new token');
+      console.log('[Mobile] 🔄 Token changed, disconnecting old socket');
       socketInstance.disconnect();
       socketInstance = null;
     }
@@ -260,11 +269,25 @@ export function useMobileSocket() {
       }
     });
 
-    // Cleanup - 싱글톤이므로 리스너만 제거하고 연결은 유지
-    // 앱이 언마운트될 때만 완전히 연결 해제
+    // 게임 리셋 이벤트 (호스트가 새 게임 시작)
+    socket.on('game_reset', () => {
+      console.log('[Mobile] 🔄 Game reset by host');
+      setGameState('WAITING');
+      setIsCastingStarted(false);
+      setCastingCountdown(null);
+    });
+
+    // 게임 종료 이벤트 (호스트 연결 해제 등)
+    socket.on('game_terminated', (data) => {
+      console.log('[Mobile] ⚠️ Game terminated:', data);
+      // 게임 종료 알림은 서버에서 처리, 모바일은 WAITING으로 복귀
+      setGameState('WAITING');
+    });
+
+    // Cleanup - 싱글톤 패턴: 연결은 유지하고 로깅만 수행
+    // 이벤트 리스너는 소켓이 disconnect될 때 자동으로 정리됨
     return () => {
-      // 싱글톤 패턴에서는 연결을 유지하고 리스너만 관리
-      // 완전한 연결 해제는 앱 종료 시에만 발생
+      console.log('[Mobile] 🧹 useMobileSocket cleanup (socket kept alive for singleton pattern)');
     };
     // ⚠️ myTeam을 의존성에서 제거: 팀 변경 시 소켓이 재연결되면 select_team 이벤트가 손실됨
   }, [token, roomId, playerId]);
@@ -353,9 +376,10 @@ export function useMobileSocket() {
   };
 
   const castComplete = () => {
-    // myTeam state is available in hook scope
-    if (socketRef.current && myTeam) {
-        socketRef.current.emit('cast_complete', { team: myTeam });
+    // 항상 최신 myTeam 값을 store에서 가져옴 (stale closure 방지)
+    const currentTeam = useMobileStore.getState().myTeam;
+    if (socketRef.current && currentTeam) {
+        socketRef.current.emit('cast_complete', { team: currentTeam });
     }
   };
   
