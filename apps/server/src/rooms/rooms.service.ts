@@ -136,6 +136,13 @@ export class RoomsService {
       throw new BadRequestException('Room is not accepting new players');
     }
 
+    // 최대 인원 체크 (팀당 maxPlayers, 총 maxPlayers * 2)
+    const maxPlayers = (room as any).maxPlayers || 10;
+    const totalMaxPlayers = maxPlayers * 2;
+    if (room.players.length >= totalMaxPlayers) {
+      throw new BadRequestException(`Room is full (Max: ${totalMaxPlayers} players)`);
+    }
+
     // 새 플레이어 생성 - 닉네임과 프로필 이미지 고정
     const player = await this.prisma.player.create({
       data: {

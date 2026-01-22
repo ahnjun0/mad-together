@@ -151,6 +151,13 @@ export function useMobileSocket() {
       // 소켓 연결 해제는 서버에서 처리하므로 여기서는 모달만 표시
     });
 
+    // 방이 가득 차서 입장 불가
+    socket.on('room_full', (data) => {
+      console.log('[Mobile] 🚫 Room full:', data);
+      useMobileStore.getState().showRoomFullModal(data.message);
+      // 소켓 연결 해제는 서버에서 처리하므로 여기서는 모달만 표시
+    });
+
     // Note: score_update는 Host에게만 전송됨 (${roomId}_host 룸)
     // 모바일은 게임 중 실시간 점수를 수신하지 않음 (센서 전송에 집중)
 
@@ -241,6 +248,10 @@ export function useMobileSocket() {
 
       if (!response.ok) {
         const errData = await response.json();
+        // 방이 가득 찬 경우 모달 표시
+        if (errData.message && errData.message.includes('full')) {
+          useMobileStore.getState().showRoomFullModal(errData.message);
+        }
         throw new Error(errData.message || 'Failed to join room');
       }
 
