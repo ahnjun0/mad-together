@@ -156,6 +156,7 @@ export default function WaitingView() {
               color="team-a"
               showKickButton={true}
               onKick={handleKickPlayer}
+              showPlayerCount={true}
             />
           </div>
 
@@ -167,6 +168,7 @@ export default function WaitingView() {
               color="team-b"
               showKickButton={true}
               onKick={handleKickPlayer}
+              showPlayerCount={true}
             />
           </div>
 

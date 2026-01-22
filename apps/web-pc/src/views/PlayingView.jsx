@@ -54,7 +54,7 @@ const ShakeItem = ({ item, onExpire }) => {
           </div>
         )}
       </div>
-      <span className="text-[10px] text-white font-bold truncate max-w-[50px] leading-tight">
+      <span className="text-[10px] text-white font-game font-bold truncate max-w-[50px] leading-tight">
         {item.nickname}
       </span>
     </motion.div>
@@ -137,13 +137,16 @@ export default function PlayingView() {
 
   // 승리 애니메이션 완료 시 모달 표시
   const handleVictoryComplete = useCallback(() => {
+    console.log('[PlayingView] 🎣 handleVictoryComplete called, current phase:', animationPhase);
     if (animationPhase === 'pulling') {
+      console.log('[PlayingView] 🎉 Setting game ending phase to modal');
       setGameEndingPhase('modal');
     }
   }, [animationPhase, setGameEndingPhase]);
 
   // 종료하기 버튼 클릭
   const handleFinish = () => {
+    console.log('[PlayingView] 🏁 handleFinish called - transitioning to FINISHED');
     closeGameEndingModal();
     setGameState('FINISHED');
   };
@@ -156,9 +159,15 @@ export default function PlayingView() {
   // Debug: Log game ending state
   useEffect(() => {
     if (isEnding) {
-      console.log('[PlayingView] Game ending state:', gameEndingState);
+      console.log('[PlayingView] 🎮 Game ending state:', {
+        isEnding,
+        showModal,
+        winnerTeam,
+        caughtItemIndex,
+        animationPhase
+      });
     }
-  }, [isEnding, gameEndingState]);
+  }, [isEnding, gameEndingState, showModal, winnerTeam, caughtItemIndex, animationPhase]);
 
   return (
     <div className="w-full h-full relative">
@@ -169,7 +178,7 @@ export default function PlayingView() {
       <motion.div
         className="absolute inset-0 z-5 pointer-events-none"
         animate={{
-          background: `radial-gradient(circle at 25% 50%, rgba(0, 191, 255, ${intensityA * 0.3}) 0%, transparent 50%), radial-gradient(circle at 75% 50%, rgba(255, 140, 0, ${intensityB * 0.3}) 0%, transparent 50%)`,
+          background: `radial-gradient(circle at 25% 50%, rgba(255, 140, 0, ${intensityA * 0.3}) 0%, transparent 50%), radial-gradient(circle at 75% 50%, rgba(0, 191, 255, ${intensityB * 0.3}) 0%, transparent 50%)`,
         }}
         transition={{ duration: 0.1 }}
       />
@@ -184,24 +193,24 @@ export default function PlayingView() {
             <div className="flex-1">
               {/* Team A name and score */}
               <div className="flex justify-between items-center mb-2">
-                <span className="text-lg font-bold text-cyan-600">
+                <span className="text-lg font-game font-bold text-orange-600">
                   {roomInfo.teamAName || 'Team A'}
                 </span>
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-sm font-game font-semibold text-gray-700">
                   {score.A} / {goalScoreA}
                 </span>
               </div>
               {/* Team A progress bar */}
               <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"
+                  className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full"
                   initial={{ width: '0%' }}
                   animate={{ width: `${progressA}%` }}
                   transition={{ type: 'spring', stiffness: 100, damping: 15 }}
                 />
                 {/* Percentage display */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-sm font-bold text-white drop-shadow-md">
+                  <span className="text-sm font-game font-bold text-white drop-shadow-md">
                     {progressA.toFixed(1)}%
                   </span>
                 </div>
@@ -212,24 +221,24 @@ export default function PlayingView() {
             <div className="flex-1">
               {/* Team B name and score */}
               <div className="flex justify-between items-center mb-2">
-                <span className="text-lg font-bold text-orange-600">
+                <span className="text-lg font-game font-bold text-cyan-600">
                   {roomInfo.teamBName || 'Team B'}
                 </span>
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-sm font-game font-semibold text-gray-700">
                   {score.B} / {goalScoreB}
                 </span>
               </div>
               {/* Team B progress bar */}
               <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full"
+                  className="h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"
                   initial={{ width: '0%' }}
                   animate={{ width: `${progressB}%` }}
                   transition={{ type: 'spring', stiffness: 100, damping: 15 }}
                 />
                 {/* Percentage display */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-sm font-bold text-white drop-shadow-md">
+                  <span className="text-sm font-game font-bold text-white drop-shadow-md">
                     {progressB.toFixed(1)}%
                   </span>
                 </div>
@@ -242,14 +251,14 @@ export default function PlayingView() {
       {/* Split Screen Game Area */}
       <div className="flex-1 flex gap-2 px-4 pb-4 min-h-0">
         {/* Team A - Left Side */}
-        <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-cyan-400/50 overflow-hidden backdrop-blur-sm">
+        <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-orange-400/50 overflow-hidden backdrop-blur-sm">
           {/* Team Header */}
-          <div className="p-3 bg-gradient-to-r from-cyan-500/80 to-cyan-400/80 flex items-center gap-4">
+          <div className="p-3 bg-gradient-to-r from-orange-500/80 to-orange-400/80 flex items-center gap-4">
             <div className="flex flex-col items-start min-w-[100px] shrink-0">
-              <h2 className="text-2xl font-bold text-white drop-shadow-md truncate max-w-full">
+              <h2 className="text-2xl font-game font-bold text-white drop-shadow-md truncate max-w-full">
                 {roomInfo.teamAName || 'Team A'}
               </h2>
-              <div className="text-4xl font-bold text-white drop-shadow-lg leading-none">
+              <div className="text-4xl font-game font-bold text-white drop-shadow-lg leading-none">
                 {score.A}
               </div>
             </div>
@@ -295,14 +304,14 @@ export default function PlayingView() {
         </div>
 
         {/* Team B - Right Side */}
-        <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-orange-400/50 overflow-hidden backdrop-blur-sm">
+        <div className="flex-1 flex flex-col bg-white/10 rounded-[20px] border-2 border-cyan-400/50 overflow-hidden backdrop-blur-sm">
           {/* Team Header */}
-          <div className="p-3 bg-gradient-to-r from-orange-400/80 to-orange-500/80 flex items-center gap-4">
+          <div className="p-3 bg-gradient-to-r from-cyan-400/80 to-cyan-500/80 flex items-center gap-4">
             <div className="flex flex-col items-start min-w-[100px] shrink-0">
-              <h2 className="text-2xl font-bold text-white drop-shadow-md truncate max-w-full">
+              <h2 className="text-2xl font-game font-bold text-white drop-shadow-md truncate max-w-full">
                 {roomInfo.teamBName || 'Team B'}
               </h2>
-              <div className="text-4xl font-bold text-white drop-shadow-lg leading-none">
+              <div className="text-4xl font-game font-bold text-white drop-shadow-lg leading-none">
                 {score.B}
               </div>
             </div>
@@ -362,14 +371,14 @@ export default function PlayingView() {
                 🎉
               </motion.div>
 
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                <span className={winnerTeam === 'A' ? 'text-cyan-600' : 'text-orange-600'}>
+              <h2 className="text-3xl font-game font-bold text-gray-800 mb-2">
+                <span className={winnerTeam === 'A' ? 'text-orange-600' : 'text-cyan-600'}>
                   {winnerTeamName}
                 </span>
                 이(가)
               </h2>
 
-              <p className="text-2xl font-bold text-gray-700 mb-6">
+              <p className="text-2xl font-game font-bold text-gray-700 mb-6">
                 <span className={RARITY_COLORS[caughtItem.rarity]}>
                   {caughtItem.name}
                 </span>
@@ -386,7 +395,7 @@ export default function PlayingView() {
                 {caughtItem.emoji}
               </motion.div>
 
-              <p className="text-gray-500 text-sm mb-8">
+              <p className="text-gray-500 text-sm font-game mb-8">
                 {caughtItem.description}
               </p>
 
@@ -396,7 +405,7 @@ export default function PlayingView() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
                 onClick={handleFinish}
-                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xl font-game font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
               >
                 결과 보기
               </motion.button>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useGameStore } from '../store/useGameStore';
 // import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
-// import backgroundDeck from '../assets/background_deck.png'; // 이미지 배경 (주석처리)
+import backgroundDeck from '../assets/background_deck.png';
 import backgroundMainVideo from '../assets/background_main.mp4';
 // import backgroundOcean from '../assets/sounds/background_ocean.mp3';
 
@@ -77,8 +77,9 @@ export default function LoginView() {
     setError('Google 로그인에 실패했습니다. 다시 시도해주세요.');
   };
 
-  // ⚡️ [Preloading Logic] - Background video preload
+  // ⚡️ [Preloading Logic] - Background video and image preload
   useEffect(() => {
+    // Video preload
     const video = document.createElement('video');
     video.src = backgroundMainVideo;
     video.preload = 'auto';
@@ -90,19 +91,14 @@ export default function LoginView() {
       console.warn('[LoginView] ⚠️ Video preload failed:', e);
     }
     
-    return () => {
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, []);
-
-  // ⚡️ [Preloading Logic - 주석처리] - Background image preload
-  useEffect(() => {
+    // Image preload for WaitingView background
     const img = new Image();
     img.src = backgroundDeck;
     console.log('[LoginView] 🖼️ Preloading background_deck.png');
     
     return () => {
+      video.removeAttribute('src');
+      video.load();
       img.src = '';
     };
   }, []);

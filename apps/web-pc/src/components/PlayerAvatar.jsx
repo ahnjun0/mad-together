@@ -7,7 +7,8 @@ export default function PlayerAvatar({
   nickname,
   sensorChecked = false,
   teamColor = 'team-a',
-  profileImage
+  profileImage,
+  size = 'default' // 'default' | 'small'
 }) {
   const [imageError, setImageError] = useState(false);
   // 팀 색상에 따른 기본 테두리 색상
@@ -25,6 +26,11 @@ export default function PlayerAvatar({
     ? 'bg-orange-100' 
     : 'bg-cyan-100';
 
+  // 크기별 스타일
+  const sizeClasses = size === 'small' 
+    ? { avatar: 'w-18 h-18', text: 'text-lg', badge: 'text-xs px-2 py-0.5' }
+    : { avatar: 'w-24 h-24', text: 'text-2xl', badge: 'text-sm px-3 py-1' };
+
   const getImageUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
@@ -39,7 +45,7 @@ export default function PlayerAvatar({
       <motion.div
         className={`
           flex items-center justify-center
-          w-24 h-24 rounded-full
+          ${sizeClasses.avatar} rounded-full
           border-2 transition-all duration-300
           ${borderClass}
           ${bgClass}
@@ -61,15 +67,15 @@ export default function PlayerAvatar({
             onError={() => setImageError(true)}
           />
         ) : (
-          <span className="text-2xl font-black text-gray-700">
+          <span className={`${sizeClasses.text} font-black text-gray-700`}>
             {nickname?.charAt(0)?.toUpperCase() || '?'}
           </span>
         )}
       </motion.div>
 
       {/* 닉네임 배지 */}
-      <div className="px-3 py-1 bg-white/80 backdrop-blur-sm rounded-full shadow-sm">
-        <span className="text-sm font-game font-medium text-gray-800">
+      <div className={`${sizeClasses.badge} bg-white/80 backdrop-blur-sm rounded-full shadow-sm`}>
+        <span className={`${sizeClasses.badge} font-game font-medium text-gray-800`}>
           {nickname}
         </span>
       </div>
