@@ -1,9 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore';
 import { usePcSocket } from '../hooks/usePcSocket';
-import { CastingRod3D } from '../components/CastingRod3D';
 import PlayerAvatar from '../components/PlayerAvatar';
+
+// Three.js 컴포넌트 lazy 로드 - 메인 스레드 블로킹 방지
+const CastingRod3D = lazy(() => import('../components/CastingRod3D').then(m => ({ default: m.CastingRod3D })));
+
+// 3D 로딩 중 표시할 fallback
+const Rod3DFallback = () => (
+  <div className="w-full h-full flex items-center justify-center">
+    <div className="text-white/60 text-lg font-game animate-pulse">
+      🎣 낚싯대 준비 중...
+    </div>
+  </div>
+);
 import GlassPanel from '../components/GlassPanel';
 import VideoBackground from '../components/VideoBackground';
 import backgroundOnship from '../assets/background_onship.png';
@@ -180,10 +191,14 @@ export default function CastingView() {
       {/* 바다 위에 직접 보이는 3D 낚싯대 - 화면 전체를 사용하는 레이어 */}
       <div className="absolute inset-x-0 bottom-0 top-24 flex justify-between pointer-events-none px-16">
         <div className="w-1/2 h-full">
-          <CastingRod3D team="A" power={castingPower.A || 0} className="w-full h-full" />
+          <Suspense fallback={<Rod3DFallback />}>
+            <CastingRod3D team="A" power={castingPower.A || 0} className="w-full h-full" />
+          </Suspense>
         </div>
         <div className="w-1/2 h-full">
-          <CastingRod3D team="B" power={castingPower.B || 0} className="w-full h-full" />
+          <Suspense fallback={<Rod3DFallback />}>
+            <CastingRod3D team="B" power={castingPower.B || 0} className="w-full h-full" />
+          </Suspense>
         </div>
       </div>
 

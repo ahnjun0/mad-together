@@ -194,7 +194,7 @@ export class AuthService {
         { sub: userId, googleId, nickname },
         {
           secret: accessSecret,
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION') || '1h',
+          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRATION') || '12h', // 시연용 12시간
         } as any,
       ),
       this.jwtService.signAsync(
