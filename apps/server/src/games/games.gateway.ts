@@ -321,6 +321,23 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         return;
       }
 
+      // 최대 인원 체크 (연결된 플레이어 기준)
+      const maxPlayers = (room as any).maxPlayers || 10;
+      const totalMaxPlayers = maxPlayers * 2;
+      const connectedPlayerIds = await this.redis.getConnectedPlayers(roomId);
+
+      // 이미 연결된 플레이어가 아닌 경우에만 인원 체크
+      if (!connectedPlayerIds.includes(playerId!) && connectedPlayerIds.length >= totalMaxPlayers) {
+        console.log(`[Gateway] Room ${roomId} is full. Connected: ${connectedPlayerIds.length}, Max: ${totalMaxPlayers}`);
+        client.emit('room_full', {
+          message: `방이 가득 찼습니다. (최대 ${totalMaxPlayers}명)`,
+          maxPlayers: totalMaxPlayers,
+          currentPlayers: connectedPlayerIds.length,
+        });
+        client.disconnect(true);
+        return;
+      }
+
       client.playerId = playerId;
       client.nickname = (player as any).nickname; // Player 테이블의 고정된 닉네임
       client.team = player.team || undefined;
@@ -493,6 +510,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     const { roomId, playerId } = client;
     if (!roomId || !playerId) return;
 
+    // room의 maxPlayers 값을 DB에서 조회 (catch 블록에서도 사용하기 위해 try 밖에서 선언)
+    let maxPlayers = 10;
+
     try {
       // Ready 상태인 플레이어는 팀 변경 불가
       const isReady = await this.redis.getPlayerReady(roomId, playerId);
@@ -503,13 +523,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         return;
       }
 
-      // room의 maxPlayers를 가져와야 함.
-      // 최적화를 위해 Redis에 저장된 값을 쓰거나, DB에서 해당 필드만 조회하는 것이 좋음.
-      // 현재는 RedisService에 관련 메서드가 없으므로, RoomsService의 selectTeam 호출 시
-      // 기본값 10을 사용하거나, 필요하다면 캐싱된 값을 사용하도록 개선 필요.
-      // 여기서는 일단 기본값 10으로 호출하고, 추후 Room 생성 시 Redis에 maxPlayers 저장 권장.
+      const room = await this.roomsService.getRoomById(roomId);
+      maxPlayers = (room as any).maxPlayers || 10;
 
-      const player = await this.roomsService.selectTeam(roomId, playerId, data.team, 10);
+      const player = await this.roomsService.selectTeam(roomId, playerId, data.team, maxPlayers);
       client.team = player.team || undefined;
 
       // 팀 선택 시 리더 여부도 업데이트 (Redis 및 클라이언트 알림)
@@ -529,7 +546,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       if (error.message && error.message.includes('is full')) {
          client.emit('team_full', {
           team: data.team,
-          maxPlayers: 10, // Default fallback
+          maxPlayers,
           message: error.message,
         });
       } else {

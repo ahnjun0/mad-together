@@ -35,6 +35,12 @@ export const useMobileStore = create(
       message: '',
     },
 
+    // Room Full 모달 상태
+    roomFullModal: {
+      isOpen: false,
+      message: '',
+    },
+
     // Actions
     setGameState: (state) =>
       set((draft) => {
@@ -127,6 +133,34 @@ export const useMobileStore = create(
       set((draft) => {
         // 모달 닫기
         draft.kickModal = { isOpen: false, message: '' };
+        // 방 관련 상태 초기화 (token은 유지하여 다시 로그인 불필요)
+        draft.gameState = 'WAITING';
+        draft.roomId = null;
+        draft.playerId = null;
+        draft.myTeam = null;
+        draft.isTeamLeader = false;
+        draft.players = [];
+        draft.teamAName = 'A팀';
+        draft.teamBName = 'B팀';
+        draft.finalScore = { A: 0, B: 0, winnerTeam: null, mvp: null };
+        draft.castingCountdown = null;
+        draft.isCastingStarted = false;
+      }),
+
+    // Room Full 모달 열기
+    showRoomFullModal: (message) =>
+      set((draft) => {
+        draft.roomFullModal = {
+          isOpen: true,
+          message: message || '방이 가득 찼습니다.',
+        };
+      }),
+
+    // Room Full 모달 닫기 및 상태 초기화 (로그인 화면으로 이동)
+    closeRoomFullModalAndReset: () =>
+      set((draft) => {
+        // 모달 닫기
+        draft.roomFullModal = { isOpen: false, message: '' };
         // 방 관련 상태 초기화 (token은 유지하여 다시 로그인 불필요)
         draft.gameState = 'WAITING';
         draft.roomId = null;
