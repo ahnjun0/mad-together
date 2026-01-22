@@ -1,9 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useMobileStore } from '../store/useMobileStore';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 const SOCKET_NAMESPACE = '/game';
+
+// 싱글톤 소켓 인스턴스 (모듈 레벨) - 중복 연결 방지
+let socketInstance = null;
+let currentAuthToken = null;
+let isInitializing = false;
 
 export function useMobileSocket() {
   const socketRef = useRef(null);
@@ -28,20 +33,53 @@ export function useMobileSocket() {
     // 토큰이 없으면 연결하지 않음
     if (!token) return;
 
+    // 이미 같은 토큰으로 연결된 소켓이 있으면 재사용
+    if (socketInstance && currentAuthToken === token && socketInstance.connected) {
+      console.log('[Mobile] 🔄 Reusing existing socket connection');
+      socketRef.current = socketInstance;
+      setConnected(true);
+
+      // 재사용 시에도 join_room 시도
+      if (roomId && playerId) {
+        console.log('[Mobile] 📡 Re-emitting join_room:', { roomId, playerId });
+        socketInstance.emit('join_room', { roomId, playerId });
+      }
+      return;
+    }
+
+    // 이미 초기화 중이면 대기
+    if (isInitializing && currentAuthToken === token) {
+      console.log('[Mobile] ⏳ Socket initialization in progress, waiting...');
+      socketRef.current = socketInstance;
+      return;
+    }
+
+    // 기존 소켓이 있고 토큰이 변경되었으면 연결 해제
+    if (socketInstance && currentAuthToken !== token) {
+      console.log('[Mobile] 🔄 Token changed, reconnecting with new token');
+      socketInstance.disconnect();
+      socketInstance = null;
+    }
+
+    isInitializing = true;
+    currentAuthToken = token;
+
     // Initialize socket connection
     const socketUrl = `${SERVER_URL}${SOCKET_NAMESPACE}`;
     console.log('[Mobile] 🔌 Connecting to:', socketUrl);
-    socketRef.current = io(socketUrl, {
+    socketInstance = io(socketUrl, {
       transports: ['websocket'],
       auth: { token },
     });
 
-    const socket = socketRef.current;
+    socketRef.current = socketInstance;
+    const socket = socketInstance;
 
     // Event Listeners
     socket.on('connect', () => {
-      console.log('[Mobile] ✅ Socket connected');
+      console.log('[Mobile] ✅ Socket connected:', socket.id);
       setConnected(true);
+      isInitializing = false;
 
       // 연결/재연결 시 방 정보가 있다면 join_room 시도
       if (roomId && playerId) {
@@ -52,9 +90,16 @@ export function useMobileSocket() {
       }
     });
 
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected');
+    socket.on('disconnect', (reason) => {
+      console.log('[Mobile] Socket disconnected:', reason);
       setConnected(false);
+      isInitializing = false;
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[Mobile] ❌ Connection error:', error.message);
+      setConnected(false);
+      isInitializing = false;
     });
 
     socket.on('room_state', (data) => {
@@ -194,11 +239,11 @@ export function useMobileSocket() {
       }
     });
 
-    // Cleanup
+    // Cleanup - 싱글톤이므로 리스너만 제거하고 연결은 유지
+    // 앱이 언마운트될 때만 완전히 연결 해제
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      // 싱글톤 패턴에서는 연결을 유지하고 리스너만 관리
+      // 완전한 연결 해제는 앱 종료 시에만 발생
     };
     // ⚠️ myTeam을 의존성에서 제거: 팀 변경 시 소켓이 재연결되면 select_team 이벤트가 손실됨
   }, [token, roomId, playerId]);

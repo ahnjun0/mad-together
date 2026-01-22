@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, Suspense, useCallback, useMemo } from 'react';
+import { useEffect, Suspense, useCallback, useMemo, lazy } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { FishingRod3D } from '../components/FishingRod3D';
 import { getItemByIndex, RARITY_COLORS, RARITY_BG_COLORS } from '../constants/fishingItems';
+
+// Three.js 컴포넌트 lazy 로드 - 메인 스레드 블로킹 방지
+const FishingRod3D = lazy(() => import('../components/FishingRod3D').then(m => ({ default: m.FishingRod3D })));
 import VideoBackground from '../components/VideoBackground';
 import WaterSplash from '../components/WaterSplash';
 import backgroundOceanVideo from '../assets/background_ocean_flow.mp4';

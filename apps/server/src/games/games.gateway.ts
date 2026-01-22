@@ -44,7 +44,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   // Host heartbeat tracking: roomId -> last heartbeat timestamp
   private hostHeartbeat: Map<string, number> = new Map();
-  private readonly HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 1분
+  private readonly HEARTBEAT_TIMEOUT_MS = 3 * 60 * 1000; // 3분 (Three.js 로딩 등 무거운 작업 고려)
   private heartbeatCleanupInterval: NodeJS.Timeout | null = null;
   // Casting completion tracking: roomId:team -> boolean
   private castingComplete: Map<string, boolean> = new Map();
