@@ -1,23 +1,21 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
-import { GoogleLogin } from '@react-oauth/google';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
-// PC WaitingView에서 사용할 배경 이미지 미리 로드
 const PRELOAD_IMAGES = [
   'https://madcamp.cloud/assets/background_deck.png',
-  // 추가로 preload할 이미지가 있다면 여기에 추가
 ];
 
 export default function LoginView() {
+  const [nickname, setNickname] = useState('');
   const [code, setCode] = useState('');
   const [isCodePreFilled, setIsCodePreFilled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const { setToken, setNickname: setStoreNickname, setProfileImage, setPendingRoomCode } = useMobileStore();
+
+  const { setToken, setNickname: setStoreNickname, setPendingRoomCode } = useMobileStore();
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -27,53 +25,47 @@ export default function LoginView() {
       setIsCodePreFilled(true);
     }
 
-    // 🖼️ PC WaitingView 배경 이미지 미리 로드
     PRELOAD_IMAGES.forEach((src) => {
       const img = new Image();
       img.src = src;
     });
   }, []);
 
-  const handleAuth = async (googleToken) => {
-    if (!code.trim()) {
+  const handleLogin = async (e) => {
+    e?.preventDefault();
+    const trimmedNickname = nickname.trim();
+    const trimmedCode = code.trim();
+
+    if (!trimmedCode) {
       setError('입장 코드를 입력해주세요.');
+      return;
+    }
+    if (!trimmedNickname) {
+      setError('닉네임을 입력해주세요.');
       return;
     }
 
     setLoading(true);
+    setError('');
     try {
-      // Google Login
-      const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
+      const authRes = await fetch(`${SERVER_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: googleToken }),
+        body: JSON.stringify({ nickname: trimmedNickname }),
       });
 
-      if (!authRes.ok) throw new Error('Google Authentication Failed');
+      if (!authRes.ok) throw new Error('로그인에 실패했습니다.');
       const authData = await authRes.json();
-      const accessToken = authData.accessToken;
-      
-      // 백엔드에서 준 구글 이름을 기본 닉네임으로 사용
-      const userNickname = authData.user.googleName;
-      
-      // 프로필 이미지 저장
-      setProfileImage(authData.user.profileImage);
 
-      // Store data
-      setToken(accessToken);
-      setStoreNickname(userNickname);
-      setPendingRoomCode(code.toUpperCase());
-      
+      setToken(authData.accessToken);
+      setStoreNickname(authData.user.nickname);
+      setPendingRoomCode(trimmedCode.toUpperCase());
     } catch (err) {
       console.error(err);
-      setError('로그인에 실패했습니다.');
+      setError(err.message || '로그인에 실패했습니다.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleSuccess = (credentialResponse) => {
-    handleAuth(credentialResponse.credential);
   };
 
   return (
@@ -83,7 +75,7 @@ export default function LoginView() {
          <div className="absolute bottom-1/4 right-[-10%] w-[120%] h-40 bg-cyan-500 rounded-[100%] blur-3xl animate-pulse delay-1000" />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="w-full max-w-sm bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl shadow-2xl z-10"
@@ -96,7 +88,7 @@ export default function LoginView() {
           <p className="text-blue-200 text-sm mt-1">승선 신고서를 작성해주세요</p>
         </div>
 
-        <div className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           {!isCodePreFilled && (
             <div className="space-y-2">
               <label className="text-blue-200 text-sm font-bold ml-1">항구 코드 (6자리)</label>
@@ -117,9 +109,21 @@ export default function LoginView() {
                <p className="text-2xl font-mono font-bold text-white tracking-widest">{code}</p>
             </div>
           )}
-          
+
+          <div className="space-y-2">
+            <label className="text-blue-200 text-sm font-bold ml-1">닉네임</label>
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="닉네임을 입력하세요"
+              maxLength={20}
+              className="w-full px-5 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-slate-800 transition-all"
+            />
+          </div>
+
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center"
@@ -128,20 +132,16 @@ export default function LoginView() {
             </motion.div>
           )}
 
-          <div className="flex justify-center w-full">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setError('Google 로그인에 실패했습니다.')}
-              theme="filled_blue"
-              shape="pill"
-              text="signin_with"
-              size="large"
-              width="100%"
-            />
-          </div>
-        </div>
+          <button
+            type="submit"
+            disabled={loading || !nickname.trim() || !code.trim()}
+            className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-white rounded-xl font-bold transition-all disabled:opacity-50"
+          >
+            {loading ? '로그인 중...' : '승선하기'}
+          </button>
+        </form>
       </motion.div>
-      
+
       <div className="absolute bottom-4 text-slate-500 text-xs text-center w-full">
         © 2026 KaHook!. All hands on deck.
       </div>

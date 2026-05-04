@@ -433,7 +433,7 @@ export const useGameStore = create(
         draft.accessToken = accessToken;
         draft.user = {
           id: user.id,
-          nickname: user.nickname || user.googleName,
+          nickname: user.nickname,
           profileImage: user.profileImage,
         };
         draft.hostDevToken = accessToken; // 호환성 유지

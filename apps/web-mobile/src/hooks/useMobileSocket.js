@@ -294,36 +294,12 @@ export function useMobileSocket() {
 
   // Join room function (HTTP API Call)
   // 프로필 정보(nickname, profileImage)는 방 입장 시 고정됨 (이후 변경 불가)
-  const joinRoom = async (code, nickname, profileImage = null, googleToken = null) => {
+  const joinRoom = async (code, nickname, profileImage = null) => {
     try {
-      let accessToken = null;
+      const existingToken = useMobileStore.getState().token;
+      const accessToken = existingToken || `dev-token-${Date.now()}`;
 
-      if (googleToken) {
-        // 1. Google Login: Exchange ID Token for Access Token
-        const authRes = await fetch(`${SERVER_URL}/api/auth/login/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: googleToken }),
-        });
-
-        if (!authRes.ok) {
-           throw new Error('Google Authentication Failed');
-        }
-
-        const authData = await authRes.json();
-        accessToken = authData.accessToken; // Server issued JWT Access Token
-      } else {
-        // 2. Check if we already have a token (from LoginView)
-        const existingToken = useMobileStore.getState().token;
-        if (existingToken) {
-          accessToken = existingToken;
-        } else {
-          // 3. Dev Login: Use temporary token
-          accessToken = `dev-token-${Date.now()}`;
-        }
-      }
-
-      // 3. Join Room with Access Token
+      // Join Room with Access Token
       // nickname과 profileImage는 방 입장 시 Player 레코드에 저장됨 (프로필 고정)
       // 이미 참가한 플레이어의 경우 기존 프로필 정보 유지 (변경 불가)
       const response = await fetch(`${SERVER_URL}/api/rooms/${code}/join`, {
