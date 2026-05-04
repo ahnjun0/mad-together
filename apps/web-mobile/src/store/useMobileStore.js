@@ -20,7 +20,6 @@ export const useMobileStore = create(
     isConnected: false,
     token: null,
     roomId: null,
-    pendingRoomCode: null, // For flow: Login -> Profile -> Join
     players: [],
     // 팀 이름 (서버에서 수신)
     teamAName: 'A팀',
@@ -85,11 +84,6 @@ export const useMobileStore = create(
     setRoomId: (id) =>
       set((draft) => {
         draft.roomId = id;
-      }),
-
-    setPendingRoomCode: (code) =>
-      set((draft) => {
-        draft.pendingRoomCode = code;
       }),
 
     // 최종 점수 설정 (게임 종료 시)

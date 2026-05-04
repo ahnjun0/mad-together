@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useMobileStore } from '../store/useMobileStore';
+import { useMobileSocket } from '../hooks/useMobileSocket';
 
 const SERVER_URL = import.meta.env.VITE_API_URL || 'https://madcamp.cloud';
 
@@ -15,7 +16,8 @@ export default function LoginView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { setToken, setNickname: setStoreNickname, setPendingRoomCode } = useMobileStore();
+  const { setToken, setNickname: setStoreNickname } = useMobileStore();
+  const { joinRoom } = useMobileSocket();
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -57,9 +59,11 @@ export default function LoginView() {
       if (!authRes.ok) throw new Error('로그인에 실패했습니다.');
       const authData = await authRes.json();
 
+      // store에 token 먼저 저장 -> joinRoom이 store에서 token을 읽어 사용
       setToken(authData.accessToken);
       setStoreNickname(authData.user.nickname);
-      setPendingRoomCode(trimmedCode.toUpperCase());
+
+      await joinRoom(trimmedCode.toUpperCase(), authData.user.nickname, null);
     } catch (err) {
       console.error(err);
       setError(err.message || '로그인에 실패했습니다.');

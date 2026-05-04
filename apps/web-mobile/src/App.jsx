@@ -5,7 +5,6 @@ import LoginView from './views/LoginView';
 import LobbyView from './views/LobbyView';
 import InGameView from './views/InGameView';
 import ResultView from './views/ResultView';
-import ProfileSetupView from './views/ProfileSetupView';
 import DebugPanel from './components/DebugPanel';
 
 // Kick 모달 컴포넌트
@@ -85,11 +84,14 @@ function App() {
       );
   }
 
-  // 2. Authenticated but Not Joined Room -> ProfileSetupView
+  // 2. Authenticated but Not Joined Room -> 로딩 화면 (LoginView에서 joinRoom 진행 중)
   if (!roomId) {
       return (
-        <div className="w-screen h-screen overflow-hidden">
-            <ProfileSetupView />
+        <div className="w-screen h-screen overflow-hidden flex items-center justify-center bg-slate-900 text-white">
+            <div className="text-center space-y-4">
+              <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-blue-200 text-sm">입장 중...</p>
+            </div>
             <DebugPanel />
             {/* Room Full 모달 (전역) */}
             <RoomFullModal
