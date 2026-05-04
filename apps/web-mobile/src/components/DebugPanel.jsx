@@ -4,10 +4,20 @@ import { useMobileSocket } from '../hooks/useMobileSocket';
 
 const GAME_STATES = ['WAITING', 'CINEMATIC', 'TUTORIAL', 'CASTING', 'PLAYING', 'FINISHED'];
 const BURST_INTERVAL_MS = 100;
+const CAST_POWERS = [30, 60, 90];
 
 export default function DebugPanel() {
-  const { gameState, setGameState, isConnected, roomId, playerId, myTeam, nickname } = useMobileStore();
-  const { shake } = useMobileSocket();
+  const {
+    gameState,
+    setGameState,
+    isConnected,
+    roomId,
+    playerId,
+    myTeam,
+    nickname,
+    isTeamLeader,
+  } = useMobileStore();
+  const { shake, sensorChecked, castAction, castComplete } = useMobileSocket();
 
   const [collapsed, setCollapsed] = useState(false);
   const [autoShake, setAutoShake] = useState(false);
@@ -27,6 +37,11 @@ export default function DebugPanel() {
 
   const burstShake = (count) => {
     for (let i = 0; i < count; i += 1) shake(1);
+  };
+
+  const cast = (power) => {
+    castAction(power);
+    setTimeout(() => castComplete(), 500);
   };
 
   if (collapsed) {
@@ -56,7 +71,7 @@ export default function DebugPanel() {
         <div>connected: <span className={isConnected ? 'text-green-400' : 'text-red-400'}>{String(isConnected)}</span></div>
         <div>state: <span className="text-yellow-300">{gameState}</span></div>
         <div>nickname: {nickname || '—'}</div>
-        <div>team: {myTeam || '—'}</div>
+        <div>team: {myTeam || '—'}{isTeamLeader ? ' (leader)' : ''}</div>
         <div className="truncate">roomId: {roomId || '—'}</div>
         <div className="truncate">playerId: {playerId || '—'}</div>
       </div>
@@ -81,7 +96,32 @@ export default function DebugPanel() {
       </div>
 
       <div className="space-y-1 pt-2 border-t border-white/20">
-        <div className="font-semibold">Shake:</div>
+        <div className="font-semibold">TUTORIAL:</div>
+        <button
+          onClick={() => sensorChecked()}
+          className="w-full px-2 py-1 rounded bg-cyan-700 hover:bg-cyan-800"
+        >
+          Sensor Check
+        </button>
+      </div>
+
+      <div className="space-y-1 pt-2 border-t border-white/20">
+        <div className="font-semibold">CASTING (leader only):</div>
+        <div className="flex flex-wrap gap-1">
+          {CAST_POWERS.map((p) => (
+            <button
+              key={p}
+              onClick={() => cast(p)}
+              className="px-2 py-1 rounded bg-purple-700 hover:bg-purple-800"
+            >
+              Cast {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1 pt-2 border-t border-white/20">
+        <div className="font-semibold">PLAYING shake:</div>
         <div className="flex flex-wrap gap-1">
           <button onClick={() => shake(1)} className="px-2 py-1 rounded bg-green-600 hover:bg-green-700">
             x1
