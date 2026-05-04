@@ -6,7 +6,7 @@ import LobbyView from './views/LobbyView';
 import InGameView from './views/InGameView';
 import ResultView from './views/ResultView';
 import ProfileSetupView from './views/ProfileSetupView';
-// import DebugPanel from './components/DebugPanel';
+import DebugPanel from './components/DebugPanel';
 
 // Kick 모달 컴포넌트
 function KickModal({ isOpen, message, onClose }) {
@@ -74,7 +74,7 @@ function App() {
       return (
         <div className="w-screen h-screen overflow-hidden">
             <LoginView />
-            {/* <DebugPanel /> */}
+            <DebugPanel />
             {/* Room Full 모달 (전역) */}
             <RoomFullModal
               isOpen={roomFullModal.isOpen}
@@ -90,7 +90,7 @@ function App() {
       return (
         <div className="w-screen h-screen overflow-hidden">
             <ProfileSetupView />
-            {/* <DebugPanel /> */}
+            <DebugPanel />
             {/* Room Full 모달 (전역) */}
             <RoomFullModal
               isOpen={roomFullModal.isOpen}
@@ -124,7 +124,7 @@ function App() {
   return (
     <div className="w-screen h-screen overflow-hidden">
       {renderView()}
-      {/* <DebugPanel /> */}
+      <DebugPanel />
       {/* Kick 모달 (전역) */}
       <KickModal
         isOpen={kickModal.isOpen}
