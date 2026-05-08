@@ -137,17 +137,20 @@ export default function DevTools() {
 
   if (!isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 w-12 h-12 bg-black/80 text-white rounded-full shadow-lg z-50 flex items-center justify-center hover:bg-black/90 transition-all"
-        title="Open DevTools"
-      >
-        <span className="text-xl">⚙️</span>
-      </button>
+      <div data-debug-root style={{ display: 'none' }}>
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-4 right-4 w-12 h-12 bg-black/80 text-white rounded-full shadow-lg z-50 flex items-center justify-center hover:bg-black/90 transition-all"
+          title="Open DevTools"
+        >
+          <span className="text-xl">⚙️</span>
+        </button>
+      </div>
     );
   }
 
   return (
+    <div data-debug-root style={{ display: 'none' }}>
     <div className="fixed bottom-4 right-4 w-96 max-h-[80vh] bg-black/90 text-white rounded-lg shadow-2xl z-50 flex flex-col border border-gray-700">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
@@ -860,6 +863,7 @@ export default function DevTools() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -46,16 +46,19 @@ export default function DebugPanel() {
 
   if (collapsed) {
     return (
-      <button
-        onClick={() => setCollapsed(false)}
-        className="fixed bottom-4 left-4 bg-black/80 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-50"
-      >
-        🐛 Debug
-      </button>
+      <div data-debug-root style={{ display: 'none' }}>
+        <button
+          onClick={() => setCollapsed(false)}
+          className="fixed bottom-4 left-4 bg-black/80 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-50"
+        >
+          🐛 Debug
+        </button>
+      </div>
     );
   }
 
   return (
+    <div data-debug-root style={{ display: 'none' }}>
     <div className="fixed bottom-4 left-4 bg-black/85 text-white p-3 rounded-lg shadow-lg z-50 space-y-2 max-w-xs text-xs">
       <div className="flex items-center justify-between">
         <div className="font-bold">Debug Panel</div>
@@ -140,6 +143,7 @@ export default function DebugPanel() {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }
